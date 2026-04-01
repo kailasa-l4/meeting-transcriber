@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: cd frontend && bun install --frozen-lockfile
+      - name: Type check
+        run: cd frontend && bun run typecheck
+      - name: Lint
+        run: cd frontend && bun run lint
+      - name: Unit tests
+        run: cd frontend && bun run test
+      - name: Install Playwright browsers
+        run: cd frontend && bunx playwright install --with-deps chromium
+      - name: E2E tests (Chromium)
+        run: cd frontend && bunx playwright test --project=chromium
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: goldleads
+          POSTGRES_PASSWORD: goldleads_test
+          POSTGRES_DB: goldleads_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://goldleads:goldleads_test@localhost:5433/goldleads_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Install dependencies
+        run: cd backend && uv sync --all-extras
+      - name: Lint
+        run: cd backend && uv run ruff check .
+      - name: Type check
+        run: cd backend && uv run mypy src/ --ignore-missing-imports
+      - name: Tests
+        run: cd backend && uv run pytest --cov=src --cov-report=xml -v

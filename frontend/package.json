@@ -1,0 +1,42 @@
+{
+  "name": "gold-lead-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "bunx playwright test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-start": "latest",
+    "@tanstack/react-query": "latest",
+    "@tanstack/react-table": "latest",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "nitro": "latest",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "latest",
+    "eslint": "latest",
+    "jsdom": "latest",
+    "typescript": "^5.5.0",
+    "vite": "latest",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "latest"
+  }
+}
