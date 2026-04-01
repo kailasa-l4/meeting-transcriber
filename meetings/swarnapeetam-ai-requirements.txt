@@ -1,0 +1,234 @@
+ 0:00: OK, so the goal, what we want to do with the, the AI scoping, I'll tell you how we need to do. 
+ 0:07: This is not just in this serrapium alone, but overall in whatever we are to do. 
+ 0:14: AI has to run everything, OK? 
+ 0:16: When we're speaking about AI running everything, we are getting visions from Bhagwan, right? 
+ 0:21: Instructions from Bhagwon. 
+ 0:23: There are many tasks that come under those instructions, right? 
+ 0:28: So when we have, when I have to assign, for example, how this has to function is, everything is in my brain. 
+ 0:35: My brain. 
+ 0:37: Is connected to all of yours. 
+ 0:39: All of you guys are extension of my brain. 
+ 0:41: It's like all of, like, like an AI agent, OK? 
+ 0:44: So you're all the different AI agents of me. 
+ 0:47: So it's basically I instruct. 
+ 0:50: There is never a component where you guys do something yourself. 
+ 0:55: If you see that is how Bhagwan is. 
+ 0:57: Like everything that we do is what Bhagwan has already instructed, given the vision and all of that. 
+ 1:02: He doesn't just tell us to do everything by ourselves and then. 
+ 1:07: He gives very, very detailed and specific instructions. 
+ 1:10: So the goal here is that I am getting a larger vision, OK. 
+ 1:17: Then what I will be doing is I'm gonna be putting it together. 
+ 1:20: The AI understands that vision. 
+ 1:23: It breaks it and then gives it to all of you guys. 
+ 1:26: So it creates a memory about you, it creates a memory about you, you, you, so it knows what your profile is. 
+ 1:33: Now yesterday what we did was the initial profile, right? 
+ 1:36: So what will happen is today, end of the day report when you guys give that is going to collect all of that memory, feed into everything that you have done. 
+ 1:46: And then give me a summary to say, OK, hey, these are all things which are done. 
+ 1:49: This is what he has done, that's something very good. 
+ 1:52: Probably Suvadma didn't do anything. 
+ 1:53: He was not able to focus on this, so we need to give some other task. 
+ 1:57: So it's able to analyze and say, OK, this is next. 
+ 1:59: So when this continues like this, let's say over a period of one. 
+ 2:03: Week 10 days, it has a memory about every one of you guys. 
+ 2:07: So let's say tomorrow Swamiji is giving me another next vision or next task is coming. 
+ 2:12: The moment I ask, it will suggest to say, OK, give it to Atma Prabha or give this to Ramanathha. 
+ 2:17: He is the best candidate in this. 
+ 2:18: He's the best candidate in that because by now it already knows every one of you guys. 
+ 2:23: You're understanding. 
+ 2:25: This is what we want as an AI model or an AI tool for Swarnavietamm itself. 
+ 2:32: So no, our work, literally offload everything. 
+ 2:38: Of planning to AI. 
+ 2:40: The only thing we need to do is execute what the AI is telling. 
+ 2:45: You guys are understanding. 
+ 2:47: We give out the reasoning skill to it. 
+ 2:49: Only the initial, like say one week until it learns about us, it might not be able to judge to say who is the best candidate to do this work, and then it might give, but in a week's time once it learns who is good at what, then it is going to say, OK, this guy is the best chance for this, this guy is the best fit for this work. 
+ 3:06: So this is what I want. 
+ 3:08: So every time work comes, I'm just going to feed it here. 
+ 3:11: This decides either it breaks it down into, like if it's a big vision, it breaks it down in different components, and then it splits it among all of you guys to say, OK, hey, tomorrow this is going to take 2 hours of your time. 
+ 3:20: This is gonna take 3 hours if you don't, this is gonna take half an hour of your time. 
+ 3:23: So I want all of you guys to finish, and then it aggregates and it comes back to me so that I actually have something that I can go back and then move things. 
+ 3:30: This is what I want. 
+ 3:34: So how can we do this? 
+ 3:38: This is what I mean by AI tool. 
+ 3:43: Yeah. 
+ 3:47: PSP, how do you guys think? 
+ 3:48: How are we going to execute? 
+ 3:50: I do not want to waste any time in planning. 
+ 3:52: No planning should be done by us. 
+ 3:54: All planning should be done only by AI. 
+ 3:56: We are only executing agents. 
+ 3:58: That's it. 
+ 4:01: Only if we keep our brain free from planning, leave the planning to it. 
+ 4:06: I'll tell you why this has been good for me, right? 
+ 4:08: Now, for example, if I'm sitting and doing the workout. 
+ 4:12: Before this, what used to happen with me is, we used to have gym. 
+ 4:17: We used to do 3 or 4 months of gym and then gym is gone. 
+ 4:20: We are traveling, routine changes, master is not there, whatever crap happens, OK? 
+ 4:26: So gym is gone. 
+ 4:27: You don't really see the end results of it. 
+ 4:29: Yes, you might have gotten stronger, you might have gotten healthier, but the idea which I had, let's say, to get 6 packs. 
+ 4:35: And to get like a strong body never manifested because it got broken in between. 
+ 4:39: So what happens? 
+ 4:40: I feel like shit. 
+ 4:41: I feel like, what is this? 
+ 4:42: Every time we start something and then it goes off. 
+ 4:44: So what I did, I stopped doing it because so much time, this is for me, I'm telling so much time went into just thinking what is the perfect way of doing it? 
+ 4:53: What is the perfect way to do all of this, and then I figured out there is no perfect way to do this. 
+ 5:01: I stopped doing gym because I thought that I'm not going to do gym. 
+ 5:05: I had the equipment, but I didn't do. 
+ 5:07: Malakamba, we started, but then I didn't do malakamba also continuously because I felt, yeah, this is also not going to be there in a few days. 
+ 5:15: Body weight I felt this shit is not useful anymore. 
+ 5:18: So basically what I did, I stopped doing everything and my health took a hit. 
+ 5:23: OK, so that is when I figured out, no, this is going in the wrong direction. 
+ 5:27: If you actually see this is the same logic for every one of us in everything that we do, whether it is work, whether it's in your personal life, we always unfortunately wait for perfection. 
+ 5:36: We feel this is the path to go. 
+ 5:39: This is how this is the right thing to do. 
+ 5:42: The right thing never comes. 
+ 5:43: There's a lot. 
+ 5:44: Of research in that atomic habits after reading, after reading the book on all of this knowledge, I kind of figured out and then I actually said this. 
+ 5:51: So there is a research that says that there are 22 categories of people, OK, and there's a college which is there and then there is a test that is being given. 
+ 6:01: Basically the thing is the semester there are 4 semesters and it's a photography competition. 
+ 6:07: So basically one group. 
+ 6:12: I told that every semester you need to deliver 100 photos, OK? 
+ 6:16: And the other group is told you don't have to do it every month, every semester, just end of it, they needs to have 400 photos. 
+ 6:24: So both end the target the same, 400 here, 400 here. 
+ 6:28: What do you think happened? 
+ 6:29: The guys who had a structured way of doing, even if it was with time constraint, they actually put in their time and effort. 
+ 6:36: They just got started with it because they have to deliver. 
+ 6:40: And every semester they perfected their stuff. 
+ 6:43: So end of the year, all these guys passed with 90% whereas all these fellows only went through 30% score. 
+ 6:51: That is the difference. 
+ 6:53: When we wait for the right and the best moment because all these fellows are like, oh, studying this, studying that, we never actually got into taking photos. 
+ 7:00: They were only planning everything in their head, never actually executing anything on the ground. 
+ 7:04: So when the other team had deadlines, they say no, nothing, you have to get 100 photos down by the semester. 
+ 7:10: So they actually got into it, whether it was perfect or not a secondary, but they actually did the work, they got perfect. 
+ 7:15: Same thing only here also for every one of us. 
+ 7:18: I figured that out with my life. 
+ 7:19: So what I did was, as far as my health is concerned, I took everything, put it in cloth. 
+ 7:23: I told this is my history. 
+ 7:24: This is how I have been these many years I've been in Malakamba. 
+ 7:26: This is how flexible I've been. 
+ 7:28: These are the injuries I've gotten. 
+ 7:29: This is what happened to me. 
+ 7:30: This is my mindset. 
+ 7:32: So I don't want to do any more planning, and I came to a point to say, OK, my health is deteriorating. 
+ 7:37: Like, for example, I became fat, right? 
+ 7:39: And then I started seeing. 
+ 7:42: Back pain, back pain was mainly the reason why it started. 
+ 7:45: He fat also was actually a secondary thing, but anyway, back was not fine, and the injury, yes, it was injured, but then it's never healing, so that kind of became, I kind of was a little scared about it. 
+ 7:55: I, how can it continue this way? 
+ 7:57: So I told Claude that this is the mindset I have. 
+ 8:01: In the name of thinking aesthetics and getting the best version of me, I have not done anything here, so I've lost my health. 
+ 8:08: So I am not going to do this anymore. 
+ 8:11: You are going to tell me what I need to do. 
+ 8:13: My goal is health, and then comes aesthetics, OK? 
+ 8:16: So I'm going to tell you I'm. 
+ 8:17: I'm a guy who keeps traveling everywhere. 
+ 8:19: I'm a guy who has a very, very broken schedule. 
+ 8:22: Sometimes I sleep at 1 o'clock, sometimes I sleep at 2 o'clock, sometimes at 6 o'clock. 
+ 8:25: So very broken schedule, and I have back pain. 
+ 8:28: So I created a thing. 
+ 8:30: So what I need to do is, the moment I go and tell good morning, it asks me how is my energy that day. 
+ 8:38: Moderate, good. 
+ 8:39: It gives me a rating. 
+ 8:40: OK, so I selected. 
+ 8:41: How is my back pain? 
+ 8:42: I select it. 
+ 8:43: And then what are the equipments available? 
+ 8:45: Floor, just floor means just floor. 
+ 8:48: Malakammba gym, those rings I have, rings are probably some something else also is there. 
+ 8:53: So any of these things which are available. 
+ 8:55: So I select what is available and then it plans, and then it asks me how much time do you have. 
+ 9:01: OK, so then I selected. 
+ 9:02: It plans and tells me, I just shut myself up, like you see, I put on my earphones, I turn on some podcast that is going on, that's it. 
+ 9:10: Those 2030 minutes, I'm into the zone, I sit and focus on doing what I'm doing. 
+ 9:16: So what I did was I removed all, and yeah, I feel good. 
+ 9:20: I feel healthy, I feel my back pain has reduced a lot, and I am recovering, OK? 
+ 9:25: So what did I do here? 
+ 9:27: I basically took out the burden of me trying to execute something. 
+ 9:32: It was only in the initial first week till the AI learned about who I am, what I am. 
+ 9:36: I fed it with my sleep timings, with my walking timings, with my running timings, everything. 
+ 9:40: I fed it, so it understood me. 
+ 9:43: After it understood me, then it starts giving. 
+ 9:45: So it already has context of these atomic habits, and then there are a couple of other productivity tools, time blocking, this, that, and all of those different things. 
+ 9:52: So it has context of everything. 
+ 9:53: I've uploaded all of it. 
+ 9:54: So it uses all of that, and then it tells me, OK, you have to do this today. 
+ 9:59: You have only 30 minutes, you do it. 
+ 10:02: You have only 20 minutes. 
+ 10:03: You do this. 
+ 10:04: So I feel that I'm always progressing. 
+ 10:07: I don't feel like, like today morning, for example, this thing went off, right? 
+ 10:12: I didn't do yoga. 
+ 10:12: I didn't do anything. 
+ 10:13: But now I've got like, OK, main work and all has been completed. 
+ 10:16: I've got like a 20-30 minute slot, so I am onto it. 
+ 10:19: So 2 hours when it is there, it gives me a 2 hour workout. 
+ 10:22: But if I have only 30 minutes, it's going to be giving me a 30 minute workout. 
+ 10:24: But what is it doing? 
+ 10:26: It has removed the burden from my head. 
+ 10:28: I am only. 
+ 10:29: I'm only choosing here to say whether I want to do this or do that. 
+ 10:32: I'm not thinking to say what are the 100 other things which are there which I need to do. 
+ 10:35: This is what I want for Swarnareetam also. 
+ 10:38: I don't want to have the burden of thinking. 
+ 10:41: I want to train the AI so I can choose. 
+ 10:44: For example, it says, OK, this is probably good with PSP. 
+ 10:47: I will say no, probably Parmesh is better at it. 
+ 10:50: That's it. 
+ 10:51: That is all that I want to spend time in actual management. 
+ 10:55: Everything else is actual action. 
+ 10:57: You're understanding the vision, what I want. 
+ 11:00: We need to create a system. 
+ 11:02: Life does not run with motivation. 
+ 11:04: Life runs with systems. 
+ 11:05: So even when your motivation is not there, even when the situation is hard, even when things are not going to happen the way you want, you still show up and you still do it. 
+ 11:14: That is how success happens. 
+ 11:16: So for all of this only I want an AI2. 
+ 11:20: Yeah, I've recorded everything. 
+ 11:22: I don't think it's actually that hard. 
+ 11:24: Yeah, it's not hard. 
+ 11:25: I think you just need to think about how to do this. 
+ 11:28: Yeah, that probably see yesterday also when I assigned tasks for you guys, right? 
+ 11:35: I asked you guys to collect a profile. 
+ 11:37: You guys gave me a profile. 
+ 11:38: I already had like 10 top things that I had in my mind to say, OK, these are the things you guys need to do, and I fed it into cloud. 
+ 11:44: So Claude then broke those visions into tasks, and then he told, OK, probably this person is good at this, this person is good at this. 
+ 11:51: Then I told no shift a few things here and there, and then it shifted, it broke up and it gave it to you guys. 
+ 11:56: So that level is straightforward in cloud. 
+ 11:58: It has. 
+ 11:58: Done given now the next part is you guys are coming back to me, right, to say, OK, this is what was assigned to me, but this is what I've completed. 
+ 12:05: Now that is where it's going to grow memory about you, to say, OK, probably he's good at this. 
+ 12:09: Tomorrow it might give you some other, I might give you some other work. 
+ 12:12: So it will see how you are, how well you're performing in that work. 
+ 12:15: So then I will know, OK, you're very good with this, you're very good with that. 
+ 12:18: And then it builds a memory about you fellows. 
+ 12:21: Once the memory is there, then every time a task comes, then it's, it, it itself is going to break it and say, OK, choose, choose, choose, and sprinkle it among you guys. 
+ 12:30: And then at the end of the day you guys come back and report. 
+ 12:32: Even that reporting, if for example, we have one centralized brain which is running it, right, so you know you're working on Swnapetam, you're working on Swarnapetam. 
+ 12:41: The centralized brain is there which is allocating tasks to all of you as you keep doing things, it already has the context that gets connected to it in multiple different ways, so. 
+ 12:50: You don't even have to submit a separate report. 
+ 12:53: By you doing the work itself, it knows who you are, because by default every cloud has that. 
+ 12:58: Now if I go and ask cloude, who am I and what is it about me, it'll give me the whole thing. 
+ 13:02: So that context is what goes to the main brain. 
+ 13:05: So if your work becomes your memory and then it takes the context from that and then it's easily able to split it and give. 
+ 13:12: So what I'm thinking. 
+ 13:15: Social media is same thing. 
+ 13:28: the plot in the plot, I get the report from the only single person what they did. 
+ 13:35: So RDS also if a portal, every one of us will put out of here we also connect to the how we are doing. 
+ 13:42: I'm working on operating what context and through this portal connected to MCP. 
+ 13:51: So it will get the details of every single user what they are doing, and it can do the profiling. 
+ 13:56: OK, and what are their skill set, what is their good and bad, all these things, and every time you can do it and you can assign the task. 
+ 14:05: OK, so what is the practical implementation of it? 
+ 14:08: How do we do this? 
+ 14:10: Does it make sense PSP. 
+ 14:13: Paramesha PSP Mangalama Prabha, I don't know you guys have to give this. 
+ 14:18: Hey, come forward, Ray Mangala. 
+ 14:21: We're hiding behind him. 
+ 14:24: things Huh, but you understood what I want. 
+ 14:29: I want to offload thinking. 
+ 14:33: We need to focus only on execution. 
+ 14:40: Because thinking Bhagwan is giving for us. 
+ 14:43: So we don't actually have to think something. 
+ 14:45: We only have to do clerical work, involve the clerical work for including me is only that much. 
+ 14:50: Ban is the one who's giving the vision. 

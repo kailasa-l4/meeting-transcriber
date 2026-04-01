@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "gws-sheets": {
+      "source": "googleworkspace/cli",
+      "sourceType": "github",
+      "computedHash": "5ff055ea0baea78ffef1ef04a702967f484cedb1c7615583624a208179971e71"
+    },
+    "gws-sheets-append": {
+      "source": "googleworkspace/cli",
+      "sourceType": "github",
+      "computedHash": "1ba127bae25783b2b61ff90fc6cc0bdfb994e4028c67f4d48762802c10bc9345"
+    },
+    "gws-sheets-read": {
+      "source": "googleworkspace/cli",
+      "sourceType": "github",
+      "computedHash": "08f03fdadb6865ca2ed04c2cc531fd55deb6ea77457d068441e4c1f8f502628b"
+    }
+  }
+}
