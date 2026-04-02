@@ -7,6 +7,9 @@ import {
   createRootRoute,
 } from '@tanstack/react-router'
 import * as React from 'react'
+import { QueryProvider } from '~/components/QueryProvider'
+import { ErrorBoundary } from '~/components/shared/ErrorBoundary'
+import appCss from '~/styles/app.css?url'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -15,6 +18,7 @@ export const Route = createRootRoute({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'Gold Lead Research System' },
     ],
+    links: [{ rel: 'stylesheet', href: appCss }],
   }),
   component: RootComponent,
 })
@@ -22,7 +26,11 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <RootLayout>
-      <Outlet />
+      <ErrorBoundary>
+        <QueryProvider>
+          <Outlet />
+        </QueryProvider>
+      </ErrorBoundary>
     </RootLayout>
   )
 }

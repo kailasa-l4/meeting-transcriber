@@ -81,6 +81,37 @@ function ApprovalsPage() {
         )}
       </div>
 
+      {pendingDrafts.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: 12,
+          alignItems: 'center',
+          padding: '8px 12px',
+          marginBottom: 12,
+          backgroundColor: '#f8fafc',
+          borderRadius: 6,
+          border: '1px solid #e2e8f0',
+          fontSize: 13,
+          color: '#64748b',
+        }}>
+          <span>
+            <span className="keyboard-hint">&uarr;&darr;</span> or <span className="keyboard-hint">j</span>/<span className="keyboard-hint">k</span> to navigate
+          </span>
+          <span style={{ color: '#cbd5e1' }}>·</span>
+          <span>
+            <span className="keyboard-hint">Enter</span> to review
+          </span>
+          <span style={{ color: '#cbd5e1' }}>·</span>
+          <span>
+            <span className="keyboard-hint">a</span> to approve
+          </span>
+          <span style={{ color: '#cbd5e1' }}>·</span>
+          <span>
+            <span className="keyboard-hint">Esc</span> to deselect
+          </span>
+        </div>
+      )}
+
       {pendingDrafts.length === 0 ? (
         <EmptyState
           title="No drafts pending review"

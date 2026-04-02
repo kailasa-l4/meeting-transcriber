@@ -1,0 +1,14 @@
+{
+  "country": "Ghana",
+  "description": "Golden test case for Ghana gold lead discovery",
+  "expected_lead_types": ["miners", "brokers", "exporters"],
+  "expected_minimum_leads": 3,
+  "expected_known_entities": [
+    {"name_pattern": "Ghana Chamber of Mines", "type": "association"},
+    {"name_pattern": "Minerals Commission", "type": "regulatory"}
+  ],
+  "search_queries_should_include": [
+    "gold mining companies Ghana",
+    "Ghana Chamber of Mines"
+  ]
+}
