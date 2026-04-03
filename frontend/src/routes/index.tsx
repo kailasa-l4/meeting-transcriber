@@ -1,25 +1,67 @@
+import { useState, useEffect } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { mockSessions, mockLeads, mockDrafts } from '~/mocks/fixtures'
 import { StatusBadge } from '~/components/shared/StatusBadge'
+import { DemoBanner } from '~/components/shared/DemoBanner'
+import { LoadingSpinner } from '~/components/shared/LoadingSpinner'
+import { apiGet } from '~/utils/api-client'
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
 })
 
 function Dashboard() {
-  const totalSessions = mockSessions.length
-  const activeSessions = mockSessions.filter(
+  const [sessions, setSessions] = useState(mockSessions)
+  const [leads, setLeads] = useState(mockLeads)
+  const [drafts, setDrafts] = useState(mockDrafts)
+  const [isDemo, setIsDemo] = useState(true)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchData() {
+      try {
+        const [jobsData, leadsData, approvalsData] = await Promise.all([
+          apiGet<typeof mockSessions>('/api/jobs'),
+          apiGet<typeof mockLeads>('/api/leads'),
+          apiGet<typeof mockDrafts>('/api/approvals/pending'),
+        ])
+        if (!cancelled) {
+          setSessions(jobsData)
+          setLeads(leadsData)
+          setDrafts(approvalsData)
+          setIsDemo(false)
+        }
+      } catch {
+        // Keep mock data, show demo banner
+        if (!cancelled) setIsDemo(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchData()
+    return () => { cancelled = true }
+  }, [])
+
+  if (loading) return <LoadingSpinner message="Loading dashboard..." />
+
+  const totalSessions = sessions.length
+  const activeSessions = sessions.filter(
     (s) => s.status === 'running' || s.status === 'seeding_knowledge' || s.status === 'queued'
   ).length
-  const totalLeads = mockLeads.length
-  const verifiedLeads = mockLeads.filter((l) => l.verification_status === 'verified').length
-  const pendingApprovals = mockDrafts.filter((d) => d.status === 'pending_review').length
-  const recentSessions = [...mockSessions]
+  const totalLeads = leads.length
+  const verifiedLeads = leads.filter((l) => l.verification_status === 'verified').length
+  const pendingApprovals = drafts.filter((d) => d.status === 'pending_review').length
+  const recentSessions = [...sessions]
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     .slice(0, 4)
 
   return (
     <div>
+      {isDemo && <DemoBanner />}
+
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Dashboard</h1>
       <p style={{ color: '#6b7280', marginBottom: 24 }}>
         Gold Lead Research System -- Operator Control Tower

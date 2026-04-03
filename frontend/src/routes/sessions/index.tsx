@@ -1,17 +1,47 @@
+import { useState, useEffect } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { mockSessions } from '~/mocks/fixtures'
 import { StatusBadge } from '~/components/shared/StatusBadge'
+import { DemoBanner } from '~/components/shared/DemoBanner'
+import { LoadingSpinner } from '~/components/shared/LoadingSpinner'
 import { formatDate } from '~/utils/formatters'
+import { apiGet } from '~/utils/api-client'
 
 export const Route = createFileRoute('/sessions/')({
   component: SessionsPage,
 })
 
 function SessionsPage() {
-  const sessions = mockSessions
+  const [sessions, setSessions] = useState(mockSessions)
+  const [isDemo, setIsDemo] = useState(true)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    apiGet<typeof mockSessions>('/api/jobs')
+      .then((data) => {
+        if (!cancelled) {
+          setSessions(data)
+          setIsDemo(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsDemo(true)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [])
+
+  if (loading) return <LoadingSpinner message="Loading sessions..." />
 
   return (
     <div>
+      {isDemo && <DemoBanner />}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700 }}>Sessions</h1>
         <Link

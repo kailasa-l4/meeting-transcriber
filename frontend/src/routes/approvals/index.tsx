@@ -1,31 +1,32 @@
+import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { mockDrafts } from '~/mocks/fixtures/drafts'
 import { mockLeads } from '~/mocks/fixtures/leads'
 import { mockSessions } from '~/mocks/fixtures/sessions'
 import { ApprovalInbox } from '~/components/approvals/ApprovalInbox'
 import { EmptyState } from '~/components/shared/EmptyState'
+import { DemoBanner } from '~/components/shared/DemoBanner'
+import { LoadingSpinner } from '~/components/shared/LoadingSpinner'
+import { apiGet, apiPost } from '~/utils/api-client'
 
 export const Route = createFileRoute('/approvals/')({
   component: ApprovalsPage,
 })
 
 function ApprovalsPage() {
-  // Filter to only pending drafts
-  const pendingDrafts = mockDrafts.filter(
+  // Build mock fallback data
+  const mockPendingDrafts = mockDrafts.filter(
     (d) => d.status === 'pending_review' || d.status === 'draft_regenerated'
   )
-
-  // Build a lead lookup for the inbox table
-  const leadLookup: Record<string, {
+  const mockLeadLookup: Record<string, {
     name: string
     company_name?: string
     country: string
     confidence_score: number
   }> = {}
-
   for (const lead of mockLeads) {
     const session = mockSessions.find((s) => s.id === lead.country_job_id)
-    leadLookup[lead.id] = {
+    mockLeadLookup[lead.id] = {
       name: lead.name,
       company_name: lead.company_name,
       country: session?.country ?? lead.country_job_id,
@@ -33,15 +34,76 @@ function ApprovalsPage() {
     }
   }
 
-  function handleQuickApprove(draftId: string) {
-    // In production, this would call approveDraft server function
-    // For now, log to console as a placeholder
-    console.log('Quick approve draft:', draftId)
-    alert(`Draft ${draftId} approved (mock). In production this would call the API.`)
+  const [pendingDrafts, setPendingDrafts] = useState(mockPendingDrafts)
+  const [leadLookup, setLeadLookup] = useState(mockLeadLookup)
+  const [isDemo, setIsDemo] = useState(true)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchData() {
+      try {
+        const data = await apiGet<typeof mockPendingDrafts>('/api/approvals/pending')
+        if (!cancelled) {
+          setPendingDrafts(data)
+          setIsDemo(false)
+
+          // Try to build lead lookup from real leads
+          try {
+            const [leadsData, sessionsData] = await Promise.all([
+              apiGet<typeof mockLeads>('/api/leads'),
+              apiGet<typeof mockSessions>('/api/jobs'),
+            ])
+            const lookup: typeof mockLeadLookup = {}
+            for (const lead of leadsData) {
+              const session = sessionsData.find((s: { id: string }) => s.id === lead.country_job_id)
+              lookup[lead.id] = {
+                name: lead.name,
+                company_name: lead.company_name,
+                country: session?.country ?? lead.country_job_id,
+                confidence_score: lead.confidence_score,
+              }
+            }
+            if (!cancelled) setLeadLookup(lookup)
+          } catch {
+            // Non-critical: keep mock lead lookup
+          }
+        }
+      } catch {
+        if (!cancelled) setIsDemo(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchData()
+    return () => { cancelled = true }
+  }, [])
+
+  async function handleQuickApprove(draftId: string) {
+    if (isDemo) {
+      console.log('Quick approve draft (demo):', draftId)
+      alert(`Draft ${draftId} approved (mock). In production this would call the API.`)
+      return
+    }
+
+    try {
+      await apiPost(`/api/approvals/${draftId}/approve`, {})
+      // Remove the approved draft from the list
+      setPendingDrafts((prev) => prev.filter((d) => d.id !== draftId))
+      alert(`Draft ${draftId} approved and queued for sending.`)
+    } catch (err) {
+      alert(`Failed to approve draft: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
   }
+
+  if (loading) return <LoadingSpinner message="Loading approvals..." />
 
   return (
     <div>
+      {isDemo && <DemoBanner />}
+
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',

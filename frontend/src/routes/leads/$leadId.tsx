@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { mockLeads } from '~/mocks/fixtures/leads'
 import { mockDrafts } from '~/mocks/fixtures/drafts'
@@ -7,7 +7,10 @@ import { ConfidenceScore } from '~/components/shared/ConfidenceScore'
 import { ConfidenceBreakdown } from '~/components/leads/ConfidenceBreakdown'
 import { SourceEvidence } from '~/components/leads/SourceEvidence'
 import { EmptyState } from '~/components/shared/EmptyState'
+import { DemoBanner } from '~/components/shared/DemoBanner'
+import { LoadingSpinner } from '~/components/shared/LoadingSpinner'
 import { confidenceTier, confidenceColors, formatDate } from '~/utils/formatters'
+import { apiGet } from '~/utils/api-client'
 import type { Lead, LeadSource, VerificationDimension } from '~/utils/types'
 
 export const Route = createFileRoute('/leads/$leadId')({
@@ -149,46 +152,100 @@ function ContactItem({
   )
 }
 
+interface LeadDetailResponse {
+  lead: Lead
+  sources: LeadSource[]
+  verification_records: VerificationRecord[]
+  draft_status: {
+    id: string
+    lead_id: string
+    subject: string
+    status: string
+    version_number: number
+    generated_at: string
+  } | null
+}
+
 function LeadDetailPage() {
   const { leadId } = Route.useParams()
 
-  const lead = useMemo(() => mockLeads.find((l) => l.id === leadId), [leadId])
-
-  const session = useMemo(() => {
-    if (!lead) return null
-    return mockSessions.find((s) => s.id === lead.country_job_id)
-  }, [lead])
-
-  const draft = useMemo(() => {
-    if (!lead) return null
-    return mockDrafts.find((d) => d.lead_id === lead.id)
-  }, [lead])
-
-  // Use full mock sources for lead-001, generate minimal sources for others
-  const sources = useMemo(() => {
-    if (!lead) return []
-    if (lead.id === 'lead-001') return mockSources
-    return lead.source_urls.map((url, i) => ({
-      id: `src-gen-${lead.id}-${i}`,
-      lead_id: lead.id,
+  // Compute mock fallback data
+  const mockLead = useMemo(() => mockLeads.find((l) => l.id === leadId) ?? null, [leadId])
+  const mockSession = useMemo(() => {
+    if (!mockLead) return null
+    return mockSessions.find((s) => s.id === mockLead.country_job_id) ?? null
+  }, [mockLead])
+  const mockDraft = useMemo(() => {
+    if (!mockLead) return null
+    return mockDrafts.find((d) => d.lead_id === mockLead.id) ?? null
+  }, [mockLead])
+  const mockSourcesForLead = useMemo(() => {
+    if (!mockLead) return []
+    if (mockLead.id === 'lead-001') return mockSources
+    return mockLead.source_urls.map((url, i) => ({
+      id: `src-gen-${mockLead.id}-${i}`,
+      lead_id: mockLead.id,
       source_url: url,
       source_title: undefined,
       source_type: url.includes('linkedin') ? 'linkedin' : 'web',
       excerpt: undefined,
-      collected_at: lead.created_at,
+      collected_at: mockLead.created_at,
     })) satisfies LeadSource[]
-  }, [lead])
-
-  // Use full mock verification records for lead-001, generate from breakdown for others
-  const verificationRecords = useMemo((): VerificationRecord[] => {
-    if (!lead) return []
-    if (lead.id === 'lead-001') return mockVerificationRecords
-    return Object.entries(lead.confidence_breakdown).map(([dim, score]) => ({
+  }, [mockLead])
+  const mockVerificationForLead = useMemo((): VerificationRecord[] => {
+    if (!mockLead) return []
+    if (mockLead.id === 'lead-001') return mockVerificationRecords
+    return Object.entries(mockLead.confidence_breakdown).map(([dim, score]) => ({
       dimension: dim as VerificationDimension,
       score,
       verifier_notes: `Automated verification scored ${Math.round(score * 100)}% for ${dim}.`,
     }))
-  }, [lead])
+  }, [mockLead])
+
+  const [lead, setLead] = useState<Lead | null>(mockLead)
+  const [session, setSession] = useState(mockSession)
+  const [draft, setDraft] = useState(mockDraft)
+  const [sources, setSources] = useState<LeadSource[]>(mockSourcesForLead)
+  const [verificationRecords, setVerificationRecords] = useState<VerificationRecord[]>(mockVerificationForLead)
+  const [isDemo, setIsDemo] = useState(true)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchData() {
+      try {
+        const data = await apiGet<LeadDetailResponse>(`/api/leads/${leadId}`)
+        if (!cancelled) {
+          setLead(data.lead)
+          setSources(data.sources ?? [])
+          setVerificationRecords(data.verification_records ?? [])
+          setDraft(data.draft_status as typeof mockDraft)
+          setIsDemo(false)
+
+          // Also try to get session info for the country name
+          if (data.lead?.country_job_id) {
+            try {
+              const sessionData = await apiGet<typeof mockSession>(`/api/jobs/${data.lead.country_job_id}`)
+              if (!cancelled) setSession(sessionData)
+            } catch {
+              // Non-critical, keep whatever we have
+            }
+          }
+        }
+      } catch {
+        // Keep mock data
+        if (!cancelled) setIsDemo(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchData()
+    return () => { cancelled = true }
+  }, [leadId])
+
+  if (loading) return <LoadingSpinner message="Loading lead details..." />
 
   if (!lead) {
     return (
@@ -229,6 +286,8 @@ function LeadDetailPage() {
 
   return (
     <div style={{ maxWidth: 840 }}>
+      {isDemo && <DemoBanner />}
+
       {/* Breadcrumb */}
       <Link
         to="/leads"

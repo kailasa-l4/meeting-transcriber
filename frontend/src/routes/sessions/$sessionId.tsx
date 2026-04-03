@@ -1,9 +1,13 @@
+import { useState, useEffect } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { mockSessions, mockLeads } from '~/mocks/fixtures'
 import { StatusBadge } from '~/components/shared/StatusBadge'
 import { ConfidenceScore } from '~/components/shared/ConfidenceScore'
 import { EmptyState } from '~/components/shared/EmptyState'
+import { DemoBanner } from '~/components/shared/DemoBanner'
+import { LoadingSpinner } from '~/components/shared/LoadingSpinner'
 import { formatDate } from '~/utils/formatters'
+import { apiGet } from '~/utils/api-client'
 
 export const Route = createFileRoute('/sessions/$sessionId')({
   component: SessionDetailPage,
@@ -26,8 +30,41 @@ function stageIndex(stage: string | undefined): number {
 
 function SessionDetailPage() {
   const { sessionId } = Route.useParams()
-  const session = mockSessions.find((s) => s.id === sessionId)
-  const sessionLeads = mockLeads.filter((l) => l.country_job_id === sessionId)
+
+  const mockSession = mockSessions.find((s) => s.id === sessionId) ?? null
+  const mockSessionLeads = mockLeads.filter((l) => l.country_job_id === sessionId)
+
+  const [session, setSession] = useState(mockSession)
+  const [sessionLeads, setSessionLeads] = useState(mockSessionLeads)
+  const [isDemo, setIsDemo] = useState(true)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchData() {
+      try {
+        const [jobData, leadsData] = await Promise.all([
+          apiGet<typeof mockSession>(`/api/jobs/${sessionId}`),
+          apiGet<typeof mockSessionLeads>(`/api/leads?job_id=${sessionId}`),
+        ])
+        if (!cancelled) {
+          setSession(jobData)
+          setSessionLeads(leadsData)
+          setIsDemo(false)
+        }
+      } catch {
+        if (!cancelled) setIsDemo(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchData()
+    return () => { cancelled = true }
+  }, [sessionId])
+
+  if (loading) return <LoadingSpinner message="Loading session..." />
 
   if (!session) {
     return (
@@ -47,6 +84,8 @@ function SessionDetailPage() {
 
   return (
     <div>
+      {isDemo && <DemoBanner />}
+
       <Link to="/sessions" style={{ color: '#2563eb', textDecoration: 'none', fontSize: 14 }}>
         &larr; Back to sessions
       </Link>

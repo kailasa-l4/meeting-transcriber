@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { useState, useEffect } from 'react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { mockDrafts, mockReviewActions } from '~/mocks/fixtures/drafts'
 import { mockLeads } from '~/mocks/fixtures/leads'
 import { mockSessions } from '~/mocks/fixtures/sessions'
@@ -9,6 +9,9 @@ import { DraftViewer } from '~/components/approvals/DraftViewer'
 import { ApprovalActions } from '~/components/approvals/ApprovalActions'
 import { StructuredFeedbackForm } from '~/components/approvals/StructuredFeedbackForm'
 import { DraftVersionHistory } from '~/components/approvals/DraftVersionHistory'
+import { DemoBanner } from '~/components/shared/DemoBanner'
+import { LoadingSpinner } from '~/components/shared/LoadingSpinner'
+import { apiGet, apiPost } from '~/utils/api-client'
 
 export const Route = createFileRoute('/approvals/$draftId')({
   component: DraftReviewPage,
@@ -45,10 +48,39 @@ function buildMockDraftDetail(draftId: string): DraftDetail | null {
 
 function DraftReviewPage() {
   const { draftId } = Route.useParams()
+  const navigate = useNavigate()
   const [showFeedbackForm, setShowFeedbackForm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isDemo, setIsDemo] = useState(true)
+  const [pageLoading, setPageLoading] = useState(true)
 
-  const detail = buildMockDraftDetail(draftId)
+  const mockDetail = buildMockDraftDetail(draftId)
+
+  const [detail, setDetail] = useState<DraftDetail | null>(mockDetail)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchData() {
+      try {
+        const data = await apiGet<DraftDetail>(`/api/approvals/${draftId}`)
+        if (!cancelled) {
+          setDetail(data)
+          setIsDemo(false)
+        }
+      } catch {
+        // Keep mock data
+        if (!cancelled) setIsDemo(true)
+      } finally {
+        if (!cancelled) setPageLoading(false)
+      }
+    }
+
+    fetchData()
+    return () => { cancelled = true }
+  }, [draftId])
+
+  if (pageLoading) return <LoadingSpinner message="Loading draft..." />
 
   if (!detail) {
     return (
@@ -71,41 +103,82 @@ function DraftReviewPage() {
 
   const { draft, lead_name, company_name, country, confidence_score, all_versions, review_history } = detail
 
-  function handleApprove() {
+  async function handleApprove() {
     setIsLoading(true)
-    // Mock: in production calls approveDraft server function
-    console.log('Approved draft:', draftId)
-    setTimeout(() => {
+    if (isDemo) {
+      console.log('Approved draft (demo):', draftId)
+      setTimeout(() => {
+        setIsLoading(false)
+        alert(`Draft approved and queued for sending (mock).`)
+      }, 500)
+      return
+    }
+
+    try {
+      await apiPost(`/api/approvals/${draftId}/approve`, {})
       setIsLoading(false)
-      alert(`Draft approved and queued for sending (mock).`)
-    }, 500)
+      alert('Draft approved and queued for sending.')
+      navigate({ to: '/approvals' })
+    } catch (err) {
+      setIsLoading(false)
+      alert(`Failed to approve: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
   }
 
   function handleRequestChanges() {
     setShowFeedbackForm(true)
   }
 
-  function handleReject() {
+  async function handleReject() {
     setIsLoading(true)
-    console.log('Rejected draft:', draftId)
-    setTimeout(() => {
+    if (isDemo) {
+      console.log('Rejected draft (demo):', draftId)
+      setTimeout(() => {
+        setIsLoading(false)
+        alert(`Draft rejected (mock).`)
+      }, 500)
+      return
+    }
+
+    try {
+      await apiPost(`/api/approvals/${draftId}/reject`, {})
       setIsLoading(false)
-      alert(`Draft rejected (mock).`)
-    }, 500)
+      alert('Draft rejected.')
+      navigate({ to: '/approvals' })
+    } catch (err) {
+      setIsLoading(false)
+      alert(`Failed to reject: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
   }
 
-  function handleFeedbackSubmit(feedback: DraftReviewRequest) {
+  async function handleFeedbackSubmit(feedback: DraftReviewRequest) {
     setIsLoading(true)
-    console.log('Feedback submitted:', feedback)
-    setTimeout(() => {
+    if (isDemo) {
+      console.log('Feedback submitted (demo):', feedback)
+      setTimeout(() => {
+        setIsLoading(false)
+        setShowFeedbackForm(false)
+        alert(`Feedback submitted. Draft will be regenerated (mock).`)
+      }, 500)
+      return
+    }
+
+    try {
+      await apiPost(`/api/approvals/${draftId}/request-changes`, feedback)
       setIsLoading(false)
       setShowFeedbackForm(false)
-      alert(`Feedback submitted. Draft will be regenerated (mock).`)
-    }, 500)
+      alert('Feedback submitted. Draft will be regenerated.')
+      navigate({ to: '/approvals' })
+    } catch (err) {
+      setIsLoading(false)
+      alert(`Failed to submit feedback: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
   }
 
   return (
     <div>
+      {isDemo && <DemoBanner />}
+
       {/* Back navigation */}
       <div style={{ marginBottom: 16 }}>
         <Link

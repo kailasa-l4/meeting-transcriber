@@ -1,6 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
 import type { CountrySubmissionInput } from '~/utils/types'
+import { apiPost } from '~/utils/api-client'
 
 export const Route = createFileRoute('/country/new')({
   component: NewCountryRunPage,
@@ -24,6 +25,7 @@ const labelStyle: React.CSSProperties = {
 }
 
 function NewCountryRunPage() {
+  const navigate = useNavigate()
   const [country, setCountry] = React.useState('')
   const [showAdvanced, setShowAdvanced] = React.useState(false)
   const [targetTypes, setTargetTypes] = React.useState('')
@@ -37,8 +39,10 @@ function NewCountryRunPage() {
   const [forceFresh, setForceFresh] = React.useState(false)
   const [error, setError] = React.useState('')
   const [submitted, setSubmitted] = React.useState(false)
+  const [submitting, setSubmitting] = React.useState(false)
+  const [jobId, setJobId] = React.useState<string | null>(null)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
@@ -60,9 +64,19 @@ function NewCountryRunPage() {
       force_fresh_run: forceFresh,
     }
 
-    // In production this would call submitCountry server function
-    console.log('Submitting country run:', input)
-    setSubmitted(true)
+    setSubmitting(true)
+    try {
+      const result = await apiPost<{ id: string }>('/api/jobs', input)
+      setJobId(result.id ?? null)
+      setSubmitted(true)
+    } catch (err) {
+      // If backend is not available, show success with demo note
+      console.log('Submitting country run (demo fallback):', input)
+      setJobId(null)
+      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -81,35 +95,63 @@ function NewCountryRunPage() {
           </p>
           <p style={{ color: '#6b7280', marginBottom: 16 }}>
             A research session for <strong>{country}</strong> has been queued.
+            {jobId && (
+              <span style={{ display: 'block', fontSize: 13, marginTop: 4 }}>
+                Job ID: <code style={{ backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{jobId}</code>
+              </span>
+            )}
+            {!jobId && (
+              <span style={{ display: 'block', fontSize: 12, color: '#92400e', marginTop: 4 }}>
+                (Backend not connected — submitted in demo mode)
+              </span>
+            )}
           </p>
-          <button
-            onClick={() => {
-              setSubmitted(false)
-              setCountry('')
-              setShowAdvanced(false)
-              setTargetTypes('')
-              setRegions('')
-              setLanguage('')
-              setKnownEntities('')
-              setTone('formal')
-              setTemplateFamily('')
-              setExclusions('')
-              setNotes('')
-              setForceFresh(false)
-            }}
-            style={{
-              padding: '8px 20px',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontSize: 14,
-              fontWeight: 600,
-            }}
-          >
-            Submit another
-          </button>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <button
+              onClick={() => navigate({ to: '/sessions' })}
+              style={{
+                padding: '8px 20px',
+                backgroundColor: '#16a34a',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              View Sessions
+            </button>
+            <button
+              onClick={() => {
+                setSubmitted(false)
+                setJobId(null)
+                setCountry('')
+                setShowAdvanced(false)
+                setTargetTypes('')
+                setRegions('')
+                setLanguage('')
+                setKnownEntities('')
+                setTone('formal')
+                setTemplateFamily('')
+                setExclusions('')
+                setNotes('')
+                setForceFresh(false)
+              }}
+              style={{
+                padding: '8px 20px',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              Submit another
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -312,18 +354,19 @@ function NewCountryRunPage() {
 
         <button
           type="submit"
+          disabled={submitting}
           style={{
             padding: '10px 24px',
-            backgroundColor: '#3b82f6',
+            backgroundColor: submitting ? '#93c5fd' : '#3b82f6',
             color: 'white',
             border: 'none',
             borderRadius: 6,
-            cursor: 'pointer',
+            cursor: submitting ? 'not-allowed' : 'pointer',
             fontSize: 15,
             fontWeight: 600,
           }}
         >
-          Submit Country Run
+          {submitting ? 'Submitting...' : 'Submit Country Run'}
         </button>
       </form>
     </div>

@@ -1,9 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { mockLeads } from '~/mocks/fixtures/leads'
 import { mockSessions } from '~/mocks/fixtures/sessions'
 import { LeadsTable } from '~/components/leads/LeadsTable'
 import { EmptyState } from '~/components/shared/EmptyState'
+import { DemoBanner } from '~/components/shared/DemoBanner'
+import { LoadingSpinner } from '~/components/shared/LoadingSpinner'
+import { apiGet } from '~/utils/api-client'
 import type { Lead, LeadVerificationStatus } from '~/utils/types'
 
 export const Route = createFileRoute('/leads/')({
@@ -23,17 +26,46 @@ function LeadsPage() {
   const [search, setSearch] = useState('')
   const [minConfidence, setMinConfidence] = useState(0)
   const [statusFilter, setStatusFilter] = useState('')
+  const [allLeads, setAllLeads] = useState<Lead[]>(mockLeads)
+  const [sessions, setSessions] = useState(mockSessions)
+  const [isDemo, setIsDemo] = useState(true)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchData() {
+      try {
+        const [leadsData, sessionsData] = await Promise.all([
+          apiGet<Lead[]>('/api/leads'),
+          apiGet<typeof mockSessions>('/api/jobs'),
+        ])
+        if (!cancelled) {
+          setAllLeads(leadsData)
+          setSessions(sessionsData)
+          setIsDemo(false)
+        }
+      } catch {
+        if (!cancelled) setIsDemo(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchData()
+    return () => { cancelled = true }
+  }, [])
 
   const countryMap = useMemo(() => {
     const map: Record<string, string> = {}
-    for (const s of mockSessions) {
+    for (const s of sessions) {
       map[s.id] = s.country
     }
     return map
-  }, [])
+  }, [sessions])
 
   const filtered = useMemo(() => {
-    let result: Lead[] = [...mockLeads]
+    let result: Lead[] = [...allLeads]
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -54,10 +86,14 @@ function LeadsPage() {
     }
 
     return result
-  }, [search, minConfidence, statusFilter])
+  }, [allLeads, search, minConfidence, statusFilter])
+
+  if (loading) return <LoadingSpinner message="Loading leads..." />
 
   return (
     <div>
+      {isDemo && <DemoBanner />}
+
       <div
         style={{
           display: 'flex',
@@ -78,9 +114,9 @@ function LeadsPage() {
             All Leads
           </h1>
           <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0' }}>
-            {filtered.length === mockLeads.length
-              ? `${mockLeads.length} leads across all sessions`
-              : `${filtered.length} of ${mockLeads.length} leads`}
+            {filtered.length === allLeads.length
+              ? `${allLeads.length} leads across all sessions`
+              : `${filtered.length} of ${allLeads.length} leads`}
           </p>
         </div>
       </div>
