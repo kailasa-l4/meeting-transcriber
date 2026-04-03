@@ -49,8 +49,12 @@ def run_normalization(state: dict, db: Session) -> dict:
     persisted_count = 0
 
     for batch in raw_candidates:
-        raw_text = batch.get("raw_text", "")
-        parsed = _parse_candidates_from_text(raw_text, state["country"])
+        # Check if batch already has parsed leads (from direct LLM call)
+        if "parsed_leads" in batch and isinstance(batch["parsed_leads"], list):
+            parsed = batch["parsed_leads"]
+        else:
+            raw_text = batch.get("raw_text", "")
+            parsed = _parse_candidates_from_text(raw_text, state["country"])
 
         for candidate in parsed:
             # Skip entries that are just parse failures

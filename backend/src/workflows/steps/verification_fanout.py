@@ -1,6 +1,6 @@
-"""Verification Fan-out step -- runs the verification team on all normalized leads."""
+"""Verification Fan-out step -- scores leads using heuristic verification."""
 
-import json
+import re
 
 from sqlalchemy.orm import Session
 
@@ -35,22 +35,87 @@ def _compute_composite_score(dimension_scores: dict[str, float]) -> float:
 
 def _determine_status(score: float) -> LeadVerificationStatus:
     """Map composite score to verification status."""
-    if score >= 0.7:
+    if score >= 0.6:
         return LeadVerificationStatus.verified
-    elif score >= 0.4:
+    elif score >= 0.3:
         return LeadVerificationStatus.needs_review
     else:
         return LeadVerificationStatus.rejected
 
 
-def run_verification_fanout(state: dict, db: Session) -> dict:
-    """Run the verification team on all leads and compute composite scores."""
-    from src.teams.verification_team import verification_team
+def _score_entity(lead: Lead) -> tuple[float, str]:
+    """Score entity plausibility based on available data."""
+    score = 0.3  # base
+    notes = []
+    if lead.company_name and len(lead.company_name) > 3:
+        score += 0.3
+        notes.append("Has company name")
+    if lead.name and lead.name != lead.company_name and len(lead.name) > 3:
+        score += 0.2
+        notes.append("Has distinct contact name")
+    if lead.details and len(lead.details) > 20:
+        score += 0.2
+        notes.append("Has detailed description")
+    return min(score, 1.0), "; ".join(notes) or "Minimal entity info"
 
+
+def _score_contact(lead: Lead) -> tuple[float, str]:
+    """Score contact info quality."""
+    score = 0.1
+    notes = []
+    if lead.email and "@" in (lead.email or ""):
+        score += 0.35
+        notes.append(f"Has email: {lead.email}")
+        # Bonus for non-generic emails
+        if not any(g in lead.email for g in ["info@", "contact@", "admin@"]):
+            score += 0.1
+            notes.append("Non-generic email")
+    if lead.phone and len(lead.phone or "") >= 8:
+        score += 0.25
+        notes.append("Has phone number")
+    if lead.website and lead.website.startswith("http"):
+        score += 0.2
+        notes.append("Has website URL")
+    if lead.whatsapp:
+        score += 0.1
+        notes.append("Has WhatsApp")
+    return min(score, 1.0), "; ".join(notes) or "No contact info"
+
+
+def _score_source(lead: Lead) -> tuple[float, str]:
+    """Score source evidence quality."""
+    score = 0.3  # base for being discovered
+    notes = []
+    if lead.source_text and len(lead.source_text) > 10:
+        score += 0.3
+        notes.append("Has source description")
+    if lead.source_urls and len(lead.source_urls) > 0:
+        score += 0.2
+        notes.append(f"{len(lead.source_urls)} source URL(s)")
+    if lead.source_count and lead.source_count > 1:
+        score += 0.2
+        notes.append("Multiple sources")
+    return min(score, 1.0), "; ".join(notes) or "Minimal source info"
+
+
+def _check_dedup(lead: Lead, existing_emails: set, existing_companies: set) -> tuple[float, str]:
+    """Check for duplicates against existing leads."""
+    if lead.email and lead.email.lower() in existing_emails:
+        return 0.0, f"Duplicate email: {lead.email}"
+    if lead.company_name:
+        normalized = lead.company_name.lower().strip()
+        for suffix in [" ltd", " limited", " inc", " corp", " co", " plc"]:
+            normalized = normalized.removesuffix(suffix)
+        if normalized.strip() in existing_companies:
+            return 0.2, f"Similar company name found"
+    return 1.0, "No duplicates found"
+
+
+def run_verification_fanout(state: dict, db: Session) -> dict:
+    """Score all leads using heuristic verification (fast, no LLM calls)."""
     job = db.query(CountryJob).filter(CountryJob.id == state["job_id"]).first()
     job.current_stage = "verification_fanout"
 
-    # Get all leads for this job that need verification
     leads = (
         db.query(Lead)
         .filter(
@@ -63,74 +128,66 @@ def run_verification_fanout(state: dict, db: Session) -> dict:
         .all()
     )
 
+    # Build dedup sets from all leads in this batch
+    seen_emails: set[str] = set()
+    seen_companies: set[str] = set()
+
     verified_count = 0
     rejected_count = 0
 
     for lead in leads:
-        # Build verification prompt for each lead
-        lead_info = {
-            "name": lead.name,
-            "company": lead.company_name,
-            "email": lead.email,
-            "phone": lead.phone,
-            "website": lead.website,
-            "details": lead.details,
-            "source_urls": lead.source_urls or [],
-            "country": state["country"],
+        # Score each dimension
+        entity_score, entity_notes = _score_entity(lead)
+        contact_score, contact_notes = _score_contact(lead)
+        source_score, source_notes = _score_source(lead)
+        dedup_score, dedup_notes = _check_dedup(lead, seen_emails, seen_companies)
+
+        dimension_scores = {
+            "entity": entity_score,
+            "contact": contact_score,
+            "source_quality": source_score,
+            "dedup": dedup_score,
         }
 
-        prompt = (
-            f"Verify this gold industry lead:\n\n"
-            f"{json.dumps(lead_info, indent=2, default=str)}\n\n"
-            f"Check entity existence, contact validity, source quality, "
-            f"and potential duplicates. Provide scores (0.0-1.0) for each dimension."
-        )
+        # Create verification records
+        for dim_name, (score, notes) in [
+            ("entity", (entity_score, entity_notes)),
+            ("contact", (contact_score, contact_notes)),
+            ("source_quality", (source_score, source_notes)),
+            ("dedup", (dedup_score, dedup_notes)),
+        ]:
+            dim = VerificationDimension(dim_name)
+            vr = VerificationRecord(
+                lead_id=lead.id,
+                status=_determine_status(score),
+                confidence_score=score,
+                dimension=dim,
+                verifier_notes=notes,
+                skill_used="heuristic_verification",
+            )
+            db.add(vr)
 
-        try:
-            response = verification_team.run(prompt)
+        # Compute composite score
+        composite = _compute_composite_score(dimension_scores)
+        final_status = _determine_status(composite)
 
-            # Parse verification results from team response
-            # Default scores if parsing fails
-            dimension_scores = {
-                "entity": 0.5,
-                "contact": 0.5,
-                "source_quality": 0.5,
-                "dedup": 0.8,
-            }
+        lead.confidence_score = composite
+        lead.confidence_breakdown = dimension_scores
+        lead.verification_status = final_status
 
-            # Create verification records for each dimension
-            for dim_name, score in dimension_scores.items():
-                dim = VerificationDimension(dim_name)
-                vr = VerificationRecord(
-                    lead_id=lead.id,
-                    status=_determine_status(score),
-                    confidence_score=score,
-                    dimension=dim,
-                    verifier_notes=(
-                        response.content[:500] if response and response.content else None
-                    ),
-                    skill_used="verification_team",
-                )
-                db.add(vr)
+        if final_status == LeadVerificationStatus.verified:
+            verified_count += 1
+        elif final_status == LeadVerificationStatus.rejected:
+            rejected_count += 1
 
-            # Compute composite score
-            composite = _compute_composite_score(dimension_scores)
-            final_status = _determine_status(composite)
-
-            lead.confidence_score = composite
-            lead.confidence_breakdown = dimension_scores
-            lead.verification_status = final_status
-
-            if final_status == LeadVerificationStatus.verified:
-                verified_count += 1
-            elif final_status == LeadVerificationStatus.rejected:
-                rejected_count += 1
-
-        except Exception as exc:
-            # Mark leads that fail verification as needs_review
-            lead.verification_status = LeadVerificationStatus.needs_review
-            lead.confidence_score = 0.0
-            lead.confidence_breakdown = {"error": str(exc)}
+        # Track seen entities for dedup
+        if lead.email:
+            seen_emails.add(lead.email.lower())
+        if lead.company_name:
+            norm = lead.company_name.lower().strip()
+            for suffix in [" ltd", " limited", " inc", " corp", " co", " plc"]:
+                norm = norm.removesuffix(suffix)
+            seen_companies.add(norm.strip())
 
     event = WorkflowEvent(
         country_job_id=job.id,

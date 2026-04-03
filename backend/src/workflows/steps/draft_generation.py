@@ -15,7 +15,7 @@ from src.db.models import (
 )
 
 # Minimum confidence to generate a draft
-DRAFT_CONFIDENCE_THRESHOLD = 0.6
+DRAFT_CONFIDENCE_THRESHOLD = 0.5
 
 
 def run_draft_generation(
@@ -84,8 +84,26 @@ def run_draft_generation(
             )
 
         try:
-            response = outreach_agent.run(prompt)
-            content = response.content if response and response.content else ""
+            import httpx
+            from src.config import settings as app_settings
+            resp = httpx.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {app_settings.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "moonshotai/kimi-k2.5",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 1000,
+                    "temperature": 0.7,
+                },
+                timeout=90,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            msg = data.get("choices", [{}])[0].get("message", {})
+            content = msg.get("content") or msg.get("reasoning") or ""
 
             # Parse subject and body from response
             subject = f"Gold Banking Partnership - {lead.company_name or lead.name}"
