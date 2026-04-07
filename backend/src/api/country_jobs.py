@@ -116,6 +116,7 @@ def _run_workflow_pipeline(job_id: str) -> None:
     from src.workflows.steps.discovery_planning import run_discovery_planning
     from src.workflows.steps.discovery_fanout import run_discovery_fanout
     from src.workflows.steps.normalization import run_normalization
+    from src.workflows.steps.signalhire_enrichment import run_signalhire_enrichment
     from src.workflows.steps.verification_fanout import run_verification_fanout
     from src.workflows.steps.lead_persistence import run_lead_persistence
     from src.workflows.steps.draft_generation import run_draft_generation
@@ -141,8 +142,9 @@ def _run_workflow_pipeline(job_id: str) -> None:
             run_discovery_planning,
             run_discovery_fanout,
             run_normalization,
+            run_signalhire_enrichment,  # Enrich with real contacts (free)
             run_verification_fanout,
-            run_lead_persistence,
+            run_lead_persistence,       # Save to xlsx
             run_draft_generation,
             run_approval_wait,
         ]
