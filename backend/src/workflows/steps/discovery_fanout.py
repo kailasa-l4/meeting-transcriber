@@ -16,18 +16,32 @@ Research these categories: {target_types}
 {known_entities_note}
 {exclusions_note}
 
+CRITICAL INSTRUCTIONS FOR COMPANY NAMES:
+- Always use the PARENT/HOLDING company name, not the mine or subsidiary name
+- Example: Use "Barrick Gold Corporation" NOT "Bulyanhulu Gold Mine"
+- Example: Use "AngloGold Ashanti Limited" NOT "Geita Gold Mine"
+- Example: Use "Newmont Corporation" NOT "Ahafo Gold Mine"
+- For local companies, use the registered company name (e.g. "Shanta Mining Company Limited")
+- For associations, use the full official name (e.g. "Tanzania Minerals Dealers Association")
+- The parent company name is what people list on LinkedIn and what SignalHire can search
+
+FOR EACH COMPANY, also try to find a REAL senior person's name:
+- Search your knowledge for the CEO, Managing Director, Country Manager, or VP
+- If you know the actual person's name, put it in the "name" field
+- If you don't know the person, put the most relevant job title (e.g. "Managing Director")
+
 Return ONLY a JSON array of leads. Each lead must have these fields:
-- "name": contact person name (or company name if no person known)
-- "company_name": organization name
+- "name": REAL person's name if known, otherwise senior job title
+- "company_name": PARENT company name (not mine/subsidiary name)
 - "role_title": job title or role
 - "email": email address (use realistic format like info@company.com if exact unknown)
 - "phone": phone number with country code
 - "website": company website URL
-- "details": 1-2 sentence description of what they do in gold
+- "details": 1-2 sentence description of what they do in gold in {country}
 - "source_text": where this information might be found
 - "whatsapp": WhatsApp number if different from phone
 
-Find at least 8-12 leads across the categories. Focus on REAL companies that are known to operate in {country}'s gold sector.
+Find at least 10-15 leads across the categories. Focus on REAL companies known to operate in {country}'s gold sector. Include both international companies with operations in {country} and local/domestic companies.
 
 IMPORTANT: Return ONLY the JSON array, no other text."""
 
@@ -80,24 +94,41 @@ def run_discovery_fanout(state: dict, db: Session) -> dict:
             json={
                 "model": "moonshotai/kimi-k2.5",
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 8000,
+                "max_tokens": 16000,
                 "temperature": 0.7,
             },
-            timeout=120,
+            timeout=300,
         )
         resp.raise_for_status()
         data = resp.json()
         msg = data.get("choices", [{}])[0].get("message", {})
-        # Kimi K2.5 is a reasoning model — content may be null, check reasoning field too
         content = msg.get("content") or msg.get("reasoning") or ""
 
-        # Extract JSON array from response
+        # Extract JSON array from response (handle truncated output)
         start = content.find("[")
-        end = content.rfind("]")
-        if start != -1 and end != -1:
-            parsed = json.loads(content[start : end + 1])
-            if isinstance(parsed, list):
-                raw_candidates = parsed
+        if start != -1:
+            json_text = content[start:]
+            # Try full parse first
+            end = json_text.rfind("]")
+            if end != -1:
+                try:
+                    parsed = json.loads(json_text[: end + 1])
+                    if isinstance(parsed, list):
+                        raw_candidates = parsed
+                except json.JSONDecodeError:
+                    pass
+
+            # If full parse failed, try to salvage truncated JSON
+            if not raw_candidates:
+                # Find the last complete object (ends with })
+                last_brace = json_text.rfind("}")
+                if last_brace != -1:
+                    try:
+                        salvaged = json.loads(json_text[: last_brace + 1] + "]")
+                        if isinstance(salvaged, list):
+                            raw_candidates = salvaged
+                    except json.JSONDecodeError:
+                        pass
 
         # Track token usage
         usage = data.get("usage", {})
@@ -106,7 +137,6 @@ def run_discovery_fanout(state: dict, db: Session) -> dict:
             job.total_token_count = (job.total_token_count or 0) + total_tokens
 
     except Exception as exc:
-        # Store error but continue pipeline
         event = WorkflowEvent(
             country_job_id=job.id,
             event_type="discovery_error",
@@ -124,6 +154,5 @@ def run_discovery_fanout(state: dict, db: Session) -> dict:
     db.add(event)
     db.commit()
 
-    # Pass structured candidates directly (skip text parsing in normalization)
     state["raw_candidates"] = [{"parsed_leads": raw_candidates, "country": country}]
     return state
