@@ -50,7 +50,7 @@ def run_signalhire_enrichment(state: dict, db: Session) -> dict:
             company=company_lead.company_name,
             location=country,
             title='("CEO" OR "Director" OR "Managing Director" OR "Head" OR "VP" OR "Manager" OR "Officer")',
-            size=10,
+            size=25,
         )
 
         # If no results, try a broader search with just the core company name
@@ -66,7 +66,7 @@ def run_signalhire_enrichment(state: dict, db: Session) -> dict:
                     company=short_name,
                     location=country,
                     keywords="gold mining",
-                    size=10,
+                    size=25,
                 )
 
         if not profiles:
