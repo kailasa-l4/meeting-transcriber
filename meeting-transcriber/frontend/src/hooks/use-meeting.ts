@@ -33,6 +33,9 @@ export function useMeeting() {
     setState("starting");
 
     try {
+      // Request mic access FIRST (needs user gesture context from the button click)
+      await startCapture(sendAudio);
+
       const res = await fetch("/api/session-id");
       const { session_id } = await res.json();
       sessionIdRef.current = session_id;
@@ -62,13 +65,14 @@ export function useMeeting() {
         },
         onError: (data) => setError(data.message),
         onOpen: () => {
+          // Audio is already capturing — just tell the server to start
           sendStartMeeting(channelId);
-          startCapture(sendAudio);
           timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
         },
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start meeting");
+      stopCapture();
       setState("idle");
     }
   }, []);
