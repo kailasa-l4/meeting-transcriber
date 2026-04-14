@@ -30,7 +30,7 @@ export function SidebarProvider({
 
   return (
     <SidebarContext.Provider value={{ open, setOpen }}>
-      <div className={cn('flex min-h-dvh w-full', className)}>
+      <div className={cn('flex h-dvh w-full overflow-hidden', className)}>
         {children}
       </div>
     </SidebarContext.Provider>
@@ -48,7 +48,7 @@ export function Sidebar({ side = 'left', className, children, ...props }: Sideba
     <aside
       data-state={open ? 'open' : 'closed'}
       className={cn(
-        'flex h-dvh flex-col border-r border-sidebar-border bg-sidebar-background text-sidebar-foreground transition-all duration-300',
+        'flex h-dvh flex-col shrink-0 border-r border-sidebar-border bg-sidebar-background text-sidebar-foreground transition-all duration-300',
         open ? 'w-64' : 'w-0 overflow-hidden',
         side === 'right' && 'border-l border-r-0 order-last',
         className,

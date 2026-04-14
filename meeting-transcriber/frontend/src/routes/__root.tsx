@@ -77,7 +77,7 @@ function RootComponent() {
           {authed && !isPublicPage ? (
             <SidebarProvider>
               <AppSidebar />
-              <main className="flex-1 flex flex-col min-h-dvh overflow-hidden">
+              <main className="flex-1 flex flex-col h-dvh overflow-auto">
                 <Outlet />
               </main>
             </SidebarProvider>
