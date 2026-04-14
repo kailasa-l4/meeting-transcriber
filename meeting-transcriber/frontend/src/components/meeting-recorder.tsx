@@ -31,7 +31,7 @@ export function MeetingRecorder() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
-        <SidebarTrigger className="md:hidden" />
+        <SidebarTrigger />
         <h1 className="font-semibold text-lg flex-1">Meeting Transcriber</h1>
         {isRecording && (
           <div className="flex items-center gap-2">

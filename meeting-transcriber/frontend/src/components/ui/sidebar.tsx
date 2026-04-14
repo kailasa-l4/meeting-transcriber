@@ -63,7 +63,7 @@ export function Sidebar({ side = 'left', className, children, ...props }: Sideba
 export function SidebarHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('flex items-center gap-2 px-4 py-3 border-b border-sidebar-border', className)}
+      className={cn('flex flex-col gap-2 px-3 py-3 border-b border-sidebar-border', className)}
       {...props}
     />
   )

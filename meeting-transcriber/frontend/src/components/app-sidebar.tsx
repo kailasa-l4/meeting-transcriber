@@ -59,12 +59,12 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
-        <div className="flex items-center justify-between">
-          <span className="font-semibold text-lg">Meetings</span>
+      <SidebarHeader>
+        <div className="flex items-center justify-between px-1">
+          <span className="font-semibold text-base">Meetings</span>
           <SidebarTrigger />
         </div>
-        <Button className="w-full mt-2" onClick={() => navigate({ to: "/" })}>
+        <Button className="w-full" onClick={() => navigate({ to: "/" })}>
           + New Meeting
         </Button>
       </SidebarHeader>

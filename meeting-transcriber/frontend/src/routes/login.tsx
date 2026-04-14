@@ -35,7 +35,7 @@ function LoginPage() {
 
   return (
     <div className="min-h-dvh flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Meeting Transcriber</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>

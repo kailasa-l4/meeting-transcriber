@@ -36,7 +36,7 @@ export function MeetingHistory({ data }: MeetingHistoryProps) {
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <SidebarTrigger className="md:hidden" />
+          <SidebarTrigger />
           <div className="flex-1">
             <h1 className="font-semibold text-lg">{meeting.title || `Meeting ${meeting.session_id}`}</h1>
             <p className="text-sm text-muted-foreground">
