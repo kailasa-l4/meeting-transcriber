@@ -11,10 +11,21 @@ export interface WsCallbacks {
 
 let ws: WebSocket | null = null;
 
+function getWsBase(): string {
+  // In dev, Vite's proxy doesn't forward WS upgrades with TanStack Start.
+  // Connect directly to the backend API server.
+  const isDev = import.meta.env.DEV;
+  if (isDev) {
+    return "ws://localhost:8000";
+  }
+  // In production, the backend serves everything on the same origin.
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${location.host}`;
+}
+
 export function connect(sessionId: string, callbacks: WsCallbacks): void {
   const token = getToken();
-  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  const url = `${protocol}//${location.host}/ws/meeting/${sessionId}?token=${token}`;
+  const url = `${getWsBase()}/ws/meeting/${sessionId}?token=${token}`;
 
   ws = new WebSocket(url);
 
