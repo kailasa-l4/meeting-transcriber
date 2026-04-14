@@ -1,0 +1,13 @@
+services:
+  transcriber:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: backend/.env
+    volumes:
+      - ./frontend:/frontend
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

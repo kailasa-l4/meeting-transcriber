@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f1117" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Meeting Transcriber</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="manifest" href="/manifest.json" />
+  </head>
+  <body>
+    <div class="header">
+      <h1>Meeting Transcriber</h1>
+      <div class="status-bar">
+        <div id="status-dot" class="status-dot idle"></div>
+        <span id="status-text" class="status-text">Ready</span>
+        <span id="timer" class="timer">00:00</span>
+      </div>
+    </div>
+
+    <div id="wake-lock-warning" class="warning-banner"></div>
+
+    <div class="config-section">
+      <label>
+        Slack Channel ID
+        <input
+          id="channel-id"
+          type="text"
+          placeholder="C0XXXXXXX (optional, uses default)"
+        />
+      </label>
+      <label>
+        Your Name
+        <input id="user-name" type="text" placeholder="Your name" />
+      </label>
+    </div>
+
+    <div class="controls">
+      <button id="start-btn" class="btn btn-start">Start Meeting</button>
+      <button id="stop-btn" class="btn btn-stop hidden">Stop Meeting</button>
+    </div>
+
+    <div class="content">
+      <div>
+        <div class="section-label">Live Transcript</div>
+        <div id="transcript" class="transcript-box"></div>
+      </div>
+
+      <div style="flex: 1; display: flex; flex-direction: column; min-height: 0">
+        <div class="section-label">Summaries</div>
+        <div id="summaries" class="summaries-container"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>
