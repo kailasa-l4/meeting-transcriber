@@ -5,9 +5,9 @@ services:
       dockerfile: backend/Dockerfile
     env_file: backend/.env
     volumes:
-      - ./frontend:/frontend
+      - ./data:/app/data
     expose:
       - "8000"
     ports:
-      - "8000:8000"
+      - "8001:8000"
     restart: unless-stopped

@@ -18,6 +18,9 @@ cloudflared tunnel --url http://localhost:8000 --no-autoupdate 2>&1 | while read
   esac
 done &
 
+# Ensure persistent data directory exists
+mkdir -p /app/data
+
 # Start the FastAPI server
 cd /app
 exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
