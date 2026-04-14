@@ -98,19 +98,16 @@ async def summarize_chunk(session_id: str, new_transcript: str) -> str:
 
 
 async def summarize_final(
-    session_id: str, all_summaries: list[str], remaining_transcript: str = ""
+    session_id: str, full_transcript: list[str], all_summaries: list[str],
 ) -> str:
-    """Generate the final comprehensive meeting summary."""
+    """Generate the final comprehensive meeting summary from the full transcript."""
     agent = _get_final_agent()
 
-    user_content = "Here are all the interim summaries from the meeting:\n\n"
+    user_content = "Here is the full meeting transcript:\n\n"
+    user_content += "\n".join(full_transcript)
+    user_content += "\n\n---\n\nHere are the interim summaries produced during the meeting for additional context:\n\n"
     for i, s in enumerate(all_summaries, 1):
         user_content += f"--- Summary {i} ---\n{s}\n\n"
-
-    if remaining_transcript.strip():
-        user_content += (
-            f"--- Remaining transcript (not yet summarized) ---\n{remaining_transcript}"
-        )
 
     result = await agent.arun(user_content)
     summary = result.content

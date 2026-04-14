@@ -95,7 +95,7 @@ export function MeetingRecorder() {
         {/* Summaries */}
         <div className="flex-1 min-h-0">
           <h3 className="text-sm font-medium text-muted-foreground mb-2">Summaries</h3>
-          <ScrollArea className="h-full max-h-[300px]">
+          <ScrollArea className="h-full max-h-[300px] rounded-md border border-border p-3">
             {summaries.length === 0 && (
               <p className="text-sm text-muted-foreground">Summaries will appear every 3 minutes</p>
             )}
