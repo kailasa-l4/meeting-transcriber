@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     MEETING_CHANNEL_ID: str
     SUMMARY_INTERVAL_SECONDS: int = 180
     AUDIO_SAMPLE_RATE: int = 16000
+    JWT_SECRET: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_DAYS: int = 7
+    DB_PATH: str = "data/meetings.db"
 
     model_config = {"env_file": ".env"}
 
