@@ -17,7 +17,7 @@ export async function startCapture(onChunk: (data: ArrayBuffer) => void): Promis
   await audioContext.audioWorklet.addModule("/js/audio-processor.worklet.js");
 
   const source = audioContext.createMediaStreamSource(stream);
-  workletNode = new AudioWorkletNode(audioContext, "audio-processor");
+  workletNode = new AudioWorkletNode(audioContext, "audio-chunk-processor");
 
   workletNode.port.onmessage = (event: MessageEvent) => {
     onChunk(event.data);
