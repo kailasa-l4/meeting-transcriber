@@ -1,29 +1,133 @@
+"""FastAPI application: WebSocket meeting handler, auth routes, meeting history API."""
+
 import json
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
+from app.auth import (
+    create_token,
+    decode_token,
+    get_current_user,
+    get_user_from_ws_token,
+    hash_password,
+    verify_password,
+)
+from app.database import (
+    add_summary,
+    add_transcript,
+    complete_meeting,
+    create_meeting,
+    create_user,
+    get_meeting_by_id,
+    get_meetings_for_user,
+    get_summaries,
+    get_transcripts,
+    get_user_by_id,
+    get_user_by_username,
+    init_db,
+    update_meeting_slack_thread,
+)
 from app.session_manager import end_meeting, receive_audio, start_meeting
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
-app = FastAPI(title="Meeting Transcriber")
+
+# -- App lifecycle --
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+
+app = FastAPI(title="Meeting Transcriber", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# -- Pydantic models for request/response --
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    display_name: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user_id: int
+    username: str
+    display_name: str
+
+
+# -- Auth routes --
+
+@app.post("/api/auth/register", response_model=AuthResponse)
+async def register(req: RegisterRequest):
+    existing = await get_user_by_username(req.username)
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    hashed = hash_password(req.password)
+    user_id = await create_user(req.username, hashed, req.display_name)
+    token = create_token(user_id, req.username)
+    return AuthResponse(token=token, user_id=user_id, username=req.username, display_name=req.display_name)
+
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+async def login(req: LoginRequest):
+    user = await get_user_by_username(req.username)
+    if not user or not verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = create_token(user["id"], user["username"])
+    return AuthResponse(token=token, user_id=user["id"], username=user["username"], display_name=user["display_name"])
+
+
+@app.get("/api/auth/me")
+async def me(current_user: dict = Depends(get_current_user)):
+    user = await get_user_by_id(current_user["user_id"])
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+# -- Meeting routes --
+
+@app.get("/api/meetings")
+async def list_meetings(current_user: dict = Depends(get_current_user)):
+    meetings = await get_meetings_for_user(current_user["user_id"])
+    return meetings
+
+
+@app.get("/api/meetings/{meeting_id}")
+async def get_meeting(meeting_id: int, current_user: dict = Depends(get_current_user)):
+    meeting = await get_meeting_by_id(meeting_id, current_user["user_id"])
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    transcripts = await get_transcripts(meeting_id)
+    summaries = await get_summaries(meeting_id)
+    return {"meeting": meeting, "transcripts": transcripts, "summaries": summaries}
+
+
+# -- Utility routes --
 
 @app.get("/api/health")
 async def health():
@@ -32,29 +136,45 @@ async def health():
 
 @app.get("/api/session-id")
 async def new_session_id():
-    return {"session_id": str(uuid.uuid4())[:8]}
+    return {"session_id": uuid.uuid4().hex[:8]}
 
+
+# -- WebSocket --
 
 @app.websocket("/ws/meeting/{session_id}")
-async def meeting_ws(websocket: WebSocket, session_id: str):
+async def meeting_ws(websocket: WebSocket, session_id: str, token: str = Query(default="")):
     await websocket.accept()
-    logger.info("WebSocket connected: session=%s", session_id)
+
+    # Authenticate via JWT query param
+    if not token:
+        await websocket.send_json({"type": "error", "message": "Authentication required"})
+        await websocket.close(code=4001)
+        return
+
+    try:
+        user_data = get_user_from_ws_token(token)
+        user_id = user_data["user_id"]
+        user_name = user_data["username"]
+    except Exception:
+        await websocket.send_json({"type": "error", "message": "Invalid token"})
+        await websocket.close(code=4001)
+        return
 
     session = None
     try:
         while True:
             message = await websocket.receive()
-
             if "text" in message:
-                # JSON control message
                 data = json.loads(message["text"])
-                msg_type = data.get("type", "")
+                msg_type = data.get("type")
 
                 if msg_type == "start_meeting":
+                    channel_id = data.get("channel_id") or None
                     session = await start_meeting(
                         session_id=session_id,
-                        channel_id=data.get("channel_id"),
-                        user_name=data.get("user_name", "Unknown"),
+                        channel_id=channel_id,
+                        user_name=user_name,
+                        user_id=user_id,
                         client_ws=websocket,
                     )
 
@@ -63,23 +183,29 @@ async def meeting_ws(websocket: WebSocket, session_id: str):
                     break
 
             elif "bytes" in message:
-                # Binary audio data
                 await receive_audio(session_id, message["bytes"])
 
-    except (WebSocketDisconnect, RuntimeError):
-        logger.info("WebSocket disconnected: session=%s", session_id)
-        if session:
-            await end_meeting(session_id)
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected: %s", session_id)
     except Exception:
-        logger.exception("Error in meeting WebSocket: session=%s", session_id)
+        logger.exception("WebSocket error: %s", session_id)
+    finally:
         if session:
-            await end_meeting(session_id)
+            try:
+                await end_meeting(session_id)
+            except Exception:
+                logger.exception("Cleanup error: %s", session_id)
 
 
-# Mount frontend static files (must be last to avoid catching API routes)
-# Check Docker path first, then local development path
-frontend_path = Path("/frontend")
+# -- Static files --
+
+frontend_path = Path("/frontend-dist")
 if not frontend_path.exists():
-    frontend_path = Path(__file__).parent.parent.parent / "frontend"
+    frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+if not frontend_path.exists():
+    frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / ".output" / "public"
+
 if frontend_path.exists():
     app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+else:
+    logger.warning("No frontend build found. Serving API only.")
