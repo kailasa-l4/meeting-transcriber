@@ -37,7 +37,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootComponent() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [user, setUser] = useState<User | null>(getStoredUser())
+  const [user, setUser] = useState<User | null>(null)
+  const [hydrated, setHydrated] = useState(false)
+
+  // Hydrate auth state from localStorage only on client
+  useEffect(() => {
+    setUser(getStoredUser())
+    setHydrated(true)
+  }, [])
 
   const login = useCallback((token: string, userData: User) => {
     setAuth(token, userData)
@@ -50,15 +57,16 @@ function RootComponent() {
     navigate({ to: '/login' })
   }, [navigate])
 
-  const authed = isAuthenticated() && user !== null
+  const authed = hydrated && isAuthenticated() && user !== null
 
-  // Auth guard: redirect unauthenticated users to /login
+  // Auth guard: only redirect after hydration on client
   useEffect(() => {
+    if (!hydrated) return
     const publicPaths = ['/login', '/register']
     if (!authed && !publicPaths.includes(location.pathname)) {
       navigate({ to: '/login' })
     }
-  }, [authed, location.pathname, navigate])
+  }, [hydrated, authed, location.pathname, navigate])
 
   const isPublicPage = ['/login', '/register'].includes(location.pathname)
 

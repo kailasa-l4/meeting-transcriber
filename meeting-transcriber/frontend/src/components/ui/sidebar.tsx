@@ -48,7 +48,7 @@ export function Sidebar({ side = 'left', className, children, ...props }: Sideba
     <aside
       data-state={open ? 'open' : 'closed'}
       className={cn(
-        'flex h-dvh flex-col border-r bg-[hsl(var(--sidebar-background))] text-[hsl(var(--sidebar-foreground))] transition-all duration-300',
+        'flex h-dvh flex-col border-r border-sidebar-border bg-sidebar-background text-sidebar-foreground transition-all duration-300',
         open ? 'w-64' : 'w-0 overflow-hidden',
         side === 'right' && 'border-l border-r-0 order-last',
         className,
@@ -63,7 +63,7 @@ export function Sidebar({ side = 'left', className, children, ...props }: Sideba
 export function SidebarHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('flex items-center gap-2 px-4 py-3 border-b border-[hsl(var(--sidebar-border))]', className)}
+      className={cn('flex items-center gap-2 px-4 py-3 border-b border-sidebar-border', className)}
       {...props}
     />
   )
@@ -78,7 +78,7 @@ export function SidebarContent({ className, ...props }: React.HTMLAttributes<HTM
 export function SidebarFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('border-t border-[hsl(var(--sidebar-border))] px-4 py-3', className)}
+      className={cn('border-t border-sidebar-border px-4 py-3', className)}
       {...props}
     />
   )
@@ -91,7 +91,7 @@ export function SidebarGroup({ className, ...props }: React.HTMLAttributes<HTMLD
 export function SidebarGroupLabel({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('px-2 py-1 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--sidebar-foreground)/0.5)]', className)}
+      className={cn('px-2 py-1 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50', className)}
       {...props}
     />
   )
@@ -123,8 +123,8 @@ export function SidebarMenuButton({
   return (
     <button
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors hover:bg-[hsl(var(--sidebar-accent))] hover:text-[hsl(var(--sidebar-accent-foreground))]',
-        isActive && 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))] font-medium',
+        'flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+        isActive && 'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
         className,
       )}
       {...props}
