@@ -6,7 +6,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -23,11 +23,16 @@ from app.database import (
     add_summary,
     add_transcript,
     complete_meeting,
+    complete_transcription,
     create_meeting,
+    create_transcription,
     create_user,
+    fail_transcription,
     get_meeting_by_id,
     get_meetings_for_user,
     get_summaries,
+    get_transcription,
+    get_transcriptions_for_user,
     get_transcripts,
     get_user_by_id,
     get_user_by_username,
@@ -35,6 +40,7 @@ from app.database import (
     update_meeting_slack_thread,
 )
 from app.session_manager import end_meeting, receive_audio, start_meeting
+from app.transcribe_file import transcribe_file
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -137,6 +143,55 @@ async def health():
 @app.get("/api/session-id")
 async def new_session_id():
     return {"session_id": uuid.uuid4().hex[:8]}
+
+
+# -- Transcription routes --
+
+@app.post("/api/transcriptions/upload")
+async def upload_transcription(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    # Create DB record
+    transcription_id = await create_transcription(current_user["user_id"], file.filename)
+
+    try:
+        file_bytes = await file.read()
+        content_type = file.content_type or "audio/wav"
+
+        result = await transcribe_file(file_bytes, content_type)
+
+        await complete_transcription(
+            transcription_id,
+            result["transcript"],
+            result["segments"],
+            result["duration_seconds"],
+        )
+
+        return {
+            "id": transcription_id,
+            "status": "completed",
+            "transcript": result["transcript"],
+            "segments": result["segments"],
+            "duration_seconds": result["duration_seconds"],
+        }
+    except Exception as e:
+        logger.exception("Transcription failed for file: %s", file.filename)
+        await fail_transcription(transcription_id, str(e))
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+
+
+@app.get("/api/transcriptions")
+async def list_transcriptions(current_user: dict = Depends(get_current_user)):
+    return await get_transcriptions_for_user(current_user["user_id"])
+
+
+@app.get("/api/transcriptions/{transcription_id}")
+async def get_transcription_detail(transcription_id: int, current_user: dict = Depends(get_current_user)):
+    t = await get_transcription(transcription_id, current_user["user_id"])
+    if not t:
+        raise HTTPException(status_code=404, detail="Transcription not found")
+    return t
 
 
 # -- WebSocket --

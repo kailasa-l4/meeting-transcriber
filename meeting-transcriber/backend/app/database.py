@@ -60,6 +60,19 @@ async def init_db() -> None:
                 time_range TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS transcriptions (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id          INTEGER NOT NULL REFERENCES users(id),
+                file_name        TEXT NOT NULL,
+                duration_seconds INTEGER,
+                status           TEXT DEFAULT 'processing',
+                transcript       TEXT,
+                segments         TEXT,
+                error_message    TEXT,
+                created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at     TIMESTAMP
+            );
         """)
         await db.commit()
     logger.info("Database initialized at %s", _db_path)
@@ -188,6 +201,58 @@ async def get_summaries(meeting_id: int) -> list[dict]:
         cursor = await db.execute(
             "SELECT type, content, time_range, created_at FROM summaries WHERE meeting_id = ? ORDER BY id",
             (meeting_id,),
+        )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+
+# -- Transcription CRUD --
+
+async def create_transcription(user_id: int, file_name: str) -> int:
+    async with aiosqlite.connect(_get_db_path()) as db:
+        cursor = await db.execute(
+            "INSERT INTO transcriptions (user_id, file_name) VALUES (?, ?)",
+            (user_id, file_name),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def complete_transcription(transcription_id: int, transcript: str, segments: str, duration_seconds: int | None) -> None:
+    async with aiosqlite.connect(_get_db_path()) as db:
+        await db.execute(
+            "UPDATE transcriptions SET status = 'completed', transcript = ?, segments = ?, duration_seconds = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (transcript, segments, duration_seconds, transcription_id),
+        )
+        await db.commit()
+
+
+async def fail_transcription(transcription_id: int, error_message: str) -> None:
+    async with aiosqlite.connect(_get_db_path()) as db:
+        await db.execute(
+            "UPDATE transcriptions SET status = 'failed', error_message = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (error_message, transcription_id),
+        )
+        await db.commit()
+
+
+async def get_transcription(transcription_id: int, user_id: int) -> dict | None:
+    async with aiosqlite.connect(_get_db_path()) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM transcriptions WHERE id = ? AND user_id = ?",
+            (transcription_id, user_id),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def get_transcriptions_for_user(user_id: int) -> list[dict]:
+    async with aiosqlite.connect(_get_db_path()) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT id, file_name, status, duration_seconds, created_at, completed_at FROM transcriptions WHERE user_id = ? ORDER BY created_at DESC",
+            (user_id,),
         )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
