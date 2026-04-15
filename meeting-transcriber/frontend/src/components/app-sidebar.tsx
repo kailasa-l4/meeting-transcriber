@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { meetingsApi, type Meeting } from "@/lib/api";
+import { meetingsApi, transcriptionsApi, type Meeting } from "@/lib/api";
 
 function groupByDate(meetings: Meeting[]): Record<string, Meeting[]> {
   const groups: Record<string, Meeting[]> = {};
@@ -55,6 +55,12 @@ export function AppSidebar() {
     refetchInterval: 10000,
   });
 
+  const { data: transcriptions = [] } = useQuery({
+    queryKey: ["transcriptions"],
+    queryFn: transcriptionsApi.list,
+    refetchInterval: 10000,
+  });
+
   const grouped = groupByDate(meetings);
 
   return (
@@ -66,6 +72,13 @@ export function AppSidebar() {
         </div>
         <Button className="w-full" onClick={() => navigate({ to: "/" })}>
           + New Meeting
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => navigate({ to: "/transcribe" })}
+        >
+          Upload & Transcribe
         </Button>
       </SidebarHeader>
 
@@ -103,6 +116,34 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroup>
         ))}
+
+        {transcriptions.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Transcriptions</SidebarGroupLabel>
+            <SidebarMenu>
+              {transcriptions.map((t) => (
+                <SidebarMenuItem key={t.id}>
+                  <SidebarMenuButton>
+                    <Link to="/transcription/$id" params={{ id: String(t.id) }} className="flex w-full items-center gap-2">
+                      <span className="truncate flex-1">
+                        {t.file_name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {t.status === "completed" ? (
+                          t.duration_seconds ? `${Math.floor(t.duration_seconds / 60)}m` : ""
+                        ) : (
+                          <Badge variant={t.status === "failed" ? "destructive" : "default"} className="text-xs">
+                            {t.status}
+                          </Badge>
+                        )}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-border">

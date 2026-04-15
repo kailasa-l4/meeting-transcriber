@@ -9,11 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TranscribeRouteImport } from './routes/transcribe'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TranscriptionIdRouteImport } from './routes/transcription.$id'
 import { Route as MeetingIdRouteImport } from './routes/meeting.$id'
 
+const TranscribeRoute = TranscribeRouteImport.update({
+  id: '/transcribe',
+  path: '/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -29,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TranscriptionIdRoute = TranscriptionIdRouteImport.update({
+  id: '/transcription/$id',
+  path: '/transcription/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MeetingIdRoute = MeetingIdRouteImport.update({
   id: '/meeting/$id',
   path: '/meeting/$id',
@@ -39,38 +51,72 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/transcribe': typeof TranscribeRoute
   '/meeting/$id': typeof MeetingIdRoute
+  '/transcription/$id': typeof TranscriptionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/transcribe': typeof TranscribeRoute
   '/meeting/$id': typeof MeetingIdRoute
+  '/transcription/$id': typeof TranscriptionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/transcribe': typeof TranscribeRoute
   '/meeting/$id': typeof MeetingIdRoute
+  '/transcription/$id': typeof TranscriptionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register' | '/meeting/$id'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/transcribe'
+    | '/meeting/$id'
+    | '/transcription/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register' | '/meeting/$id'
-  id: '__root__' | '/' | '/login' | '/register' | '/meeting/$id'
+  to:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/transcribe'
+    | '/meeting/$id'
+    | '/transcription/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/register'
+    | '/transcribe'
+    | '/meeting/$id'
+    | '/transcription/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  TranscribeRoute: typeof TranscribeRoute
   MeetingIdRoute: typeof MeetingIdRoute
+  TranscriptionIdRoute: typeof TranscriptionIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/transcribe': {
+      id: '/transcribe'
+      path: '/transcribe'
+      fullPath: '/transcribe'
+      preLoaderRoute: typeof TranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -92,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/transcription/$id': {
+      id: '/transcription/$id'
+      path: '/transcription/$id'
+      fullPath: '/transcription/$id'
+      preLoaderRoute: typeof TranscriptionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/meeting/$id': {
       id: '/meeting/$id'
       path: '/meeting/$id'
@@ -106,7 +159,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  TranscribeRoute: TranscribeRoute,
   MeetingIdRoute: MeetingIdRoute,
+  TranscriptionIdRoute: TranscriptionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

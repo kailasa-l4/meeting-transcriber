@@ -68,3 +68,51 @@ export const meetingsApi = {
   list: () => request<Meeting[]>("/api/meetings"),
   get: (id: number) => request<MeetingDetail>(`/api/meetings/${id}`),
 };
+
+// Transcriptions
+export interface Transcription {
+  id: number;
+  file_name: string;
+  status: string;
+  duration_seconds: number | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface TranscriptionSegment {
+  speaker: number;
+  text: string;
+  start: number;
+  end: number;
+}
+
+export interface TranscriptionDetail extends Transcription {
+  transcript: string | null;
+  segments: string | null; // JSON string of TranscriptionSegment[]
+  error_message: string | null;
+}
+
+export const transcriptionsApi = {
+  list: () => request<Transcription[]>("/api/transcriptions"),
+  get: (id: number) => request<TranscriptionDetail>(`/api/transcriptions/${id}`),
+  upload: async (file: File): Promise<TranscriptionDetail> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/transcriptions/upload", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (res.status === 401) {
+      clearAuth();
+      if (typeof window !== "undefined") window.location.href = "/login";
+      throw new Error("Unauthorized");
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail || res.statusText);
+    }
+    return res.json();
+  },
+};
