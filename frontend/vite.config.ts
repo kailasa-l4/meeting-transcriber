@@ -20,7 +20,11 @@ export default defineConfig({
   },
   plugins: [
     viteTsConfigPaths(),
-    tanstackStart(),
+    tanstackStart({
+      spa: {
+        enabled: true,
+      },
+    }),
     viteReact(),
     tailwindcss(),
   ],

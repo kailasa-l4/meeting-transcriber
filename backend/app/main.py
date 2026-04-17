@@ -252,15 +252,56 @@ async def meeting_ws(websocket: WebSocket, session_id: str, token: str = Query(d
                 logger.exception("Cleanup error: %s", session_id)
 
 
-# -- Static files --
+# -- Static files (SPA) --
+
+from fastapi.responses import FileResponse
 
 frontend_path = Path("/frontend-dist")
 if not frontend_path.exists():
-    frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+    frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist" / "client"
 if not frontend_path.exists():
-    frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / ".output" / "public"
+    frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 
 if frontend_path.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+    # TanStack Start SPA mode outputs _shell.html; fall back to index.html if present.
+    shell_path = frontend_path / "_shell.html"
+    if not shell_path.exists():
+        shell_path = frontend_path / "index.html"
+
+    # Mount all static assets under their respective paths
+    assets_dir = frontend_path / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    js_dir = frontend_path / "js"
+    if js_dir.exists():
+        app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
+
+    # Serve manifest.json and other root-level files
+    @app.get("/manifest.json")
+    async def manifest():
+        path = frontend_path / "manifest.json"
+        if path.exists():
+            return FileResponse(path)
+        raise HTTPException(status_code=404)
+
+    @app.get("/favicon.ico")
+    async def favicon():
+        path = frontend_path / "favicon.ico"
+        if path.exists():
+            return FileResponse(path)
+        raise HTTPException(status_code=404)
+
+    # SPA fallback: serve the shell for all non-API routes
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        # Don't intercept API or WS routes (they're registered above)
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            raise HTTPException(status_code=404)
+        if shell_path.exists():
+            return FileResponse(shell_path)
+        raise HTTPException(status_code=404)
+
+    logger.info("Frontend mounted from %s (shell: %s)", frontend_path, shell_path.name)
 else:
     logger.warning("No frontend build found. Serving API only.")
