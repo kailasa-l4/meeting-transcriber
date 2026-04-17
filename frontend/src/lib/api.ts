@@ -22,6 +22,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error("Unauthorized");
   }
 
+  if (res.status === 403) {
+    const body = await res.json().catch(() => ({ detail: "Forbidden" }));
+    if (body.detail === "account_not_approved") {
+      if (typeof window !== "undefined" && window.location.pathname !== "/pending") {
+        window.location.href = "/pending";
+      }
+      throw new Error("account_not_approved");
+    }
+    throw new Error(body.detail || "Forbidden");
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail || res.statusText);
@@ -31,20 +42,72 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 // Auth
+export type UserStatus = "pending" | "approved" | "revoked" | "deleted";
+
+export interface AuthResponse {
+  token: string;
+  user_id: number;
+  username: string;
+  display_name: string;
+  status: UserStatus;
+  is_admin: boolean;
+}
+
+export interface MeResponse {
+  id: number;
+  username: string;
+  display_name: string;
+  status: UserStatus;
+  is_admin: boolean;
+  created_at: string;
+}
+
 export const authApi = {
   register: (data: { username: string; password: string; display_name: string }) =>
-    request<{ token: string; user_id: number; username: string; display_name: string }>("/api/auth/register", {
+    request<AuthResponse>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   login: (data: { username: string; password: string }) =>
-    request<{ token: string; user_id: number; username: string; display_name: string }>("/api/auth/login", {
+    request<AuthResponse>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  me: () => request<{ id: number; username: string; display_name: string }>("/api/auth/me"),
+  me: () => request<MeResponse>("/api/auth/me"),
+};
+
+// Admin
+export interface AdminUser {
+  id: number;
+  username: string;
+  display_name: string;
+  status: UserStatus;
+  approved_at: string | null;
+  created_at: string;
+}
+
+export const adminApi = {
+  listUsers: (statusFilter?: UserStatus) =>
+    request<AdminUser[]>(
+      `/api/admin/users${statusFilter ? `?status=${statusFilter}` : ""}`,
+    ),
+
+  approveUser: (userId: number) =>
+    request<{ ok: boolean }>(`/api/admin/users/${userId}/approve`, {
+      method: "POST",
+    }),
+
+  revokeUser: (userId: number) =>
+    request<{ ok: boolean }>(`/api/admin/users/${userId}/revoke`, {
+      method: "POST",
+    }),
+
+  deleteUser: (userId: number) =>
+    request<{ ok: boolean }>(`/api/admin/users/${userId}`, {
+      method: "DELETE",
+    }),
 };
 
 // Meetings
@@ -108,6 +171,16 @@ export const transcriptionsApi = {
       clearAuth();
       if (typeof window !== "undefined") window.location.href = "/login";
       throw new Error("Unauthorized");
+    }
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({ detail: "Forbidden" }));
+      if (body.detail === "account_not_approved") {
+        if (typeof window !== "undefined" && window.location.pathname !== "/pending") {
+          window.location.href = "/pending";
+        }
+        throw new Error("account_not_approved");
+      }
+      throw new Error(body.detail || "Forbidden");
     }
     if (!res.ok) {
       const body = await res.json().catch(() => ({ detail: res.statusText }));

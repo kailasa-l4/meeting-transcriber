@@ -3,10 +3,14 @@ const USER_KEY = "mt_user";
 
 const isBrowser = typeof window !== "undefined";
 
+export type UserStatus = "pending" | "approved" | "revoked" | "deleted";
+
 export interface User {
   user_id: number;
   username: string;
   display_name: string;
+  status: UserStatus;
+  is_admin: boolean;
 }
 
 export function getToken(): string | null {
