@@ -24,6 +24,7 @@ from app.slack_client import (
     upload_audio_file,
 )
 from app.summarizer import cleanup_session, summarize_chunk, summarize_final
+from app.database import add_summary, add_transcript, complete_meeting, create_meeting, update_meeting_slack_thread
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,8 @@ class MeetingSession:
     summary_task: asyncio.Task | None = None
     start_time: float = 0.0
     last_summary_time: float = 0.0
+    user_id: int = 0
+    meeting_db_id: int | None = None
 
 
 # Global session store
@@ -61,6 +64,7 @@ async def start_meeting(
     session_id: str,
     channel_id: str | None,
     user_name: str,
+    user_id: int,
     client_ws: WebSocket,
 ) -> MeetingSession:
     settings = get_settings()
@@ -76,6 +80,11 @@ async def start_meeting(
     )
     _sessions[session_id] = session
 
+    # Persist meeting to DB
+    session.user_id = user_id
+    meeting_db_id = await create_meeting(session_id, user_id, channel_id)
+    session.meeting_db_id = meeting_db_id
+
     await _send_to_client(
         client_ws,
         StatusUpdate(state=SessionState.STARTING, message="Initializing...").model_dump(),
@@ -90,6 +99,9 @@ async def start_meeting(
             client_ws,
             ErrorMessage(message="Failed to post to Slack. Check bot token and channel.").model_dump(),
         )
+
+    if session.slack_thread_ts and session.meeting_db_id:
+        await update_meeting_slack_thread(session.meeting_db_id, session.slack_thread_ts)
 
     # Connect to Deepgram
     loop = asyncio.get_running_loop()
@@ -133,6 +145,8 @@ async def end_meeting(session_id: str) -> None:
     if not session:
         return
 
+    settings = get_settings()
+
     session.state = SessionState.STOPPING
     await _send_to_client(
         session.client_ws,
@@ -153,10 +167,12 @@ async def end_meeting(session_id: str) -> None:
 
     # Generate and post final summary
     try:
-        remaining = " ".join(session.transcript_buffer[session.unsummarized_start:])
-        if session.summaries or remaining.strip():
-            final = await summarize_final(session_id, session.summaries, remaining)
+        if session.summaries or session.transcript_buffer:
+            final = await summarize_final(session_id, session.transcript_buffer, session.summaries)
             post_final_summary(session.channel_id, session.slack_thread_ts, final)
+
+            if session.meeting_db_id and final:
+                await add_summary(session.meeting_db_id, "final", final)
 
             await _send_to_client(
                 session.client_ws,
@@ -170,6 +186,10 @@ async def end_meeting(session_id: str) -> None:
         update_meeting_header(
             session.channel_id, session.slack_thread_ts, duration_str
         )
+
+        if session.meeting_db_id:
+            title = session.summaries[0][:80] if session.summaries else f"Meeting {session.session_id}"
+            await complete_meeting(session.meeting_db_id, int(duration), title)
     except Exception:
         logger.exception("Error generating final summary")
 
@@ -228,6 +248,8 @@ async def _handle_transcript(
     if is_final:
         prefix = f"[Speaker {speaker}] " if speaker is not None else ""
         session.transcript_buffer.append(f"{prefix}{text}")
+        if session.meeting_db_id:
+            await add_transcript(session.meeting_db_id, speaker, text, start_time)
 
 
 async def _summary_loop(session: MeetingSession, interval: int) -> None:
@@ -257,6 +279,8 @@ async def _summary_loop(session: MeetingSession, interval: int) -> None:
             try:
                 summary = await summarize_chunk(session.session_id, new_text)
                 session.summaries.append(summary)
+                if session.meeting_db_id:
+                    await add_summary(session.meeting_db_id, "chunk", summary, time_range)
 
                 # Post to Slack thread
                 if session.slack_thread_ts:

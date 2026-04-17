@@ -1,6 +1,21 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
+
+
+def _find_env_file() -> str | None:
+    """Look for .env in common locations: project root (dev), /app (docker), CWD."""
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parent.parent.parent / ".env",  # dev: project root (backend/app/config.py -> root)
+        Path("/app/.env"),                    # docker: if mounted into WORKDIR
+        Path.cwd() / ".env",                  # CWD fallback
+    ]
+    for path in candidates:
+        if path.is_file():
+            return str(path)
+    return None
 
 
 class Settings(BaseSettings):
@@ -12,8 +27,14 @@ class Settings(BaseSettings):
     MEETING_CHANNEL_ID: str
     SUMMARY_INTERVAL_SECONDS: int = 180
     AUDIO_SAMPLE_RATE: int = 16000
+    JWT_SECRET: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_DAYS: int = 7
+    DB_PATH: str = "data/meetings.db"
+    PORT: int = 8000
 
-    model_config = {"env_file": ".env"}
+    # env_file is optional; Docker injects env vars directly via compose's env_file directive
+    model_config = {"env_file": _find_env_file(), "extra": "ignore"}
 
 
 @lru_cache

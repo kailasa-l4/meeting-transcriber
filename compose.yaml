@@ -3,11 +3,11 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    env_file: backend/.env
+    env_file: .env
+    environment:
+      - PORT=${PORT:-8000}
     volumes:
-      - ./frontend:/frontend
-    expose:
-      - "8000"
+      - ./data:/app/data
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     restart: unless-stopped
