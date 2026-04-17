@@ -259,16 +259,11 @@ from fastapi.responses import FileResponse
 frontend_path = Path("/frontend-dist")
 if not frontend_path.exists():
     frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist" / "client"
-if not frontend_path.exists():
-    frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 
 if frontend_path.exists():
-    # TanStack Start SPA mode outputs _shell.html; fall back to index.html if present.
-    shell_path = frontend_path / "_shell.html"
-    if not shell_path.exists():
-        shell_path = frontend_path / "index.html"
+    index_html = frontend_path / "index.html"
 
-    # Mount all static assets under their respective paths
+    # Mount static asset directories
     assets_dir = frontend_path / "assets"
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
@@ -277,7 +272,6 @@ if frontend_path.exists():
     if js_dir.exists():
         app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
 
-    # Serve manifest.json and other root-level files
     @app.get("/manifest.json")
     async def manifest():
         path = frontend_path / "manifest.json"
@@ -292,16 +286,15 @@ if frontend_path.exists():
             return FileResponse(path)
         raise HTTPException(status_code=404)
 
-    # SPA fallback: serve the shell for all non-API routes
+    # SPA fallback: serve index.html for all non-API, non-WS routes
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):
-        # Don't intercept API or WS routes (they're registered above)
         if full_path.startswith("api/") or full_path.startswith("ws/"):
             raise HTTPException(status_code=404)
-        if shell_path.exists():
-            return FileResponse(shell_path)
+        if index_html.exists():
+            return FileResponse(index_html)
         raise HTTPException(status_code=404)
 
-    logger.info("Frontend mounted from %s (shell: %s)", frontend_path, shell_path.name)
+    logger.info("Frontend mounted from %s", frontend_path)
 else:
     logger.warning("No frontend build found. Serving API only.")
