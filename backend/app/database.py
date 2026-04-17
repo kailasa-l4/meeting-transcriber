@@ -27,6 +27,10 @@ async def init_db() -> None:
                 username      TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 display_name  TEXT NOT NULL,
+                status        TEXT NOT NULL DEFAULT 'pending'
+                              CHECK (status IN ('pending','approved','revoked','deleted')),
+                approved_at   TIMESTAMP NULL,
+                approved_by   INTEGER NULL REFERENCES users(id),
                 created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -75,6 +79,34 @@ async def init_db() -> None:
             );
         """)
         await db.commit()
+
+        # Migration for existing DBs: add new columns if missing
+        cursor = await db.execute("PRAGMA table_info(users)")
+        existing_cols = {row[1] for row in await cursor.fetchall()}
+
+        if "status" not in existing_cols:
+            await db.execute(
+                "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' "
+                "CHECK (status IN ('pending','approved','revoked','deleted'))"
+            )
+        if "approved_at" not in existing_cols:
+            await db.execute("ALTER TABLE users ADD COLUMN approved_at TIMESTAMP NULL")
+        if "approved_by" not in existing_cols:
+            await db.execute(
+                "ALTER TABLE users ADD COLUMN approved_by INTEGER NULL REFERENCES users(id)"
+            )
+        await db.commit()
+
+        # Auto-approve the configured admin user if they exist
+        admin_username = settings.ADMIN_USERNAME
+        if admin_username:
+            await db.execute(
+                "UPDATE users SET status = 'approved', approved_at = CURRENT_TIMESTAMP "
+                "WHERE username = ? AND status != 'approved'",
+                (admin_username,),
+            )
+            await db.commit()
+
     logger.info("Database initialized at %s", _db_path)
 
 
