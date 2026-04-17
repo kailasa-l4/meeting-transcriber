@@ -80,6 +80,15 @@ export function AppSidebar() {
         >
           Upload & Transcribe
         </Button>
+        {user?.is_admin && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate({ to: "/admin" })}
+          >
+            User Management
+          </Button>
+        )}
       </SidebarHeader>
 
       <SidebarContent>
