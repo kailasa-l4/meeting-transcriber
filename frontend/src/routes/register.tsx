@@ -25,8 +25,14 @@ function RegisterPage() {
     setLoading(true);
     try {
       const res = await authApi.register({ username, password, display_name: displayName });
-      login(res.token, { user_id: res.user_id, username: res.username, display_name: res.display_name });
-      navigate({ to: "/" });
+      login(res.token, {
+        user_id: res.user_id,
+        username: res.username,
+        display_name: res.display_name,
+        status: res.status,
+        is_admin: res.is_admin,
+      });
+      navigate({ to: res.status === "approved" ? "/" : "/pending" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

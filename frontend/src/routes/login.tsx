@@ -24,8 +24,14 @@ function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login({ username, password });
-      login(res.token, { user_id: res.user_id, username: res.username, display_name: res.display_name });
-      navigate({ to: "/" });
+      login(res.token, {
+        user_id: res.user_id,
+        username: res.username,
+        display_name: res.display_name,
+        status: res.status,
+        is_admin: res.is_admin,
+      });
+      navigate({ to: res.status === "approved" ? "/" : "/pending" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
