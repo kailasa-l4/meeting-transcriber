@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+backend/.venv/
+backend/tmp/
+
+# Data (persistent DB)
+data/*.db
+backend/data/*.db
+
+# Environment
+backend/.env
+.env
+
+# Node / Bun
+frontend/node_modules/
+frontend/dist/
+frontend/.tanstack/
+
+# Build artifacts
+frontend-old/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Superpowers
+.superpowers/
+docs/superpowers/
