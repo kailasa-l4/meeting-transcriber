@@ -3,8 +3,19 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
-# Project root is two levels up from this file: backend/app/config.py -> backend -> root
-ROOT_ENV = Path(__file__).resolve().parent.parent.parent / ".env"
+
+def _find_env_file() -> str | None:
+    """Look for .env in common locations: project root (dev), /app (docker), CWD."""
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parent.parent.parent / ".env",  # dev: project root (backend/app/config.py -> root)
+        Path("/app/.env"),                    # docker: if mounted into WORKDIR
+        Path.cwd() / ".env",                  # CWD fallback
+    ]
+    for path in candidates:
+        if path.is_file():
+            return str(path)
+    return None
 
 
 class Settings(BaseSettings):
@@ -22,7 +33,8 @@ class Settings(BaseSettings):
     DB_PATH: str = "data/meetings.db"
     PORT: int = 8000
 
-    model_config = {"env_file": str(ROOT_ENV)}
+    # env_file is optional; Docker injects env vars directly via compose's env_file directive
+    model_config = {"env_file": _find_env_file(), "extra": "ignore"}
 
 
 @lru_cache
