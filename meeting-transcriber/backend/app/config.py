@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_DAYS: int = 7
     DB_PATH: str = "data/meetings.db"
+    PORT: int = 8000
 
     model_config = {"env_file": ".env"}
 

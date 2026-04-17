@@ -35,5 +35,8 @@ RUN mkdir -p /app/data
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
-EXPOSE 8000
+# Port is configurable via PORT env var (default 8000)
+ENV PORT=8000
+EXPOSE ${PORT}
+
 ENTRYPOINT ["./entrypoint.sh"]
