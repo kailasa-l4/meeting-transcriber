@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_DAYS: int = 7
     DB_PATH: str = "data/meetings.db"
+    ADMIN_USERNAME: str = ""
     PORT: int = 8000
 
     # env_file is optional; Docker injects env vars directly via compose's env_file directive
