@@ -137,9 +137,67 @@ async def get_user_by_username(username: str) -> dict | None:
 async def get_user_by_id(user_id: int) -> dict | None:
     async with aiosqlite.connect(_get_db_path()) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT id, username, display_name, created_at FROM users WHERE id = ?", (user_id,))
+        cursor = await db.execute(
+            "SELECT id, username, display_name, status, approved_at, approved_by, created_at "
+            "FROM users WHERE id = ?",
+            (user_id,),
+        )
         row = await cursor.fetchone()
         return dict(row) if row else None
+
+
+async def list_users(status_filter: str | None = None) -> list[dict]:
+    """List users, optionally filtered by status. Excludes deleted unless filter='deleted'."""
+    async with aiosqlite.connect(_get_db_path()) as db:
+        db.row_factory = aiosqlite.Row
+        if status_filter:
+            cursor = await db.execute(
+                "SELECT id, username, display_name, status, approved_at, created_at "
+                "FROM users WHERE status = ? ORDER BY created_at DESC",
+                (status_filter,),
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT id, username, display_name, status, approved_at, created_at "
+                "FROM users WHERE status != 'deleted' ORDER BY created_at DESC",
+            )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+
+async def set_user_status(user_id: int, status: str, approved_by: int | None = None) -> None:
+    """Update a user's status. When approving, sets approved_at and approved_by."""
+    async with aiosqlite.connect(_get_db_path()) as db:
+        if status == "approved":
+            await db.execute(
+                "UPDATE users SET status = ?, approved_at = CURRENT_TIMESTAMP, approved_by = ? "
+                "WHERE id = ?",
+                (status, approved_by, user_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE users SET status = ? WHERE id = ?",
+                (status, user_id),
+            )
+        await db.commit()
+
+
+async def soft_delete_user(user_id: int) -> None:
+    """Soft delete: rename username to free it, set status='deleted'. Data preserved."""
+    async with aiosqlite.connect(_get_db_path()) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+        row = await cursor.fetchone()
+        if not row:
+            return
+        original = row["username"]
+        suffix = f"__deleted_{user_id}"
+        new_username = original if original.endswith(suffix) else f"{original}{suffix}"
+        await db.execute(
+            "UPDATE users SET status = 'deleted', username = ? WHERE id = ?",
+            (new_username, user_id),
+        )
+        await db.commit()
 
 
 # -- Meeting CRUD --
