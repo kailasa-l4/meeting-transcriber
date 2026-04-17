@@ -13,12 +13,14 @@ from pydantic import BaseModel
 
 from app.auth import (
     create_token,
-    decode_token,
+    get_admin_user,
+    get_authenticated_user,
     get_current_user,
     get_user_from_ws_token,
     hash_password,
     verify_password,
 )
+from app.config import get_settings
 from app.database import (
     add_summary,
     add_transcript,
@@ -37,6 +39,9 @@ from app.database import (
     get_user_by_id,
     get_user_by_username,
     init_db,
+    list_users,
+    set_user_status,
+    soft_delete_user,
     update_meeting_slack_thread,
 )
 from app.session_manager import end_meeting, receive_audio, start_meeting
@@ -83,6 +88,26 @@ class AuthResponse(BaseModel):
     user_id: int
     username: str
     display_name: str
+    status: str
+    is_admin: bool
+
+
+class MeResponse(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    status: str
+    is_admin: bool
+    created_at: str
+
+
+class UserAdminView(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    status: str
+    approved_at: str | None
+    created_at: str
 
 
 # -- Auth routes --
@@ -94,8 +119,24 @@ async def register(req: RegisterRequest):
         raise HTTPException(status_code=400, detail="Username already taken")
     hashed = hash_password(req.password)
     user_id = await create_user(req.username, hashed, req.display_name)
+
+    admin_username = get_settings().ADMIN_USERNAME
+    is_admin = bool(admin_username) and req.username == admin_username
+    if is_admin:
+        await set_user_status(user_id, "approved", approved_by=None)
+        user_status = "approved"
+    else:
+        user_status = "pending"
+
     token = create_token(user_id, req.username)
-    return AuthResponse(token=token, user_id=user_id, username=req.username, display_name=req.display_name)
+    return AuthResponse(
+        token=token,
+        user_id=user_id,
+        username=req.username,
+        display_name=req.display_name,
+        status=user_status,
+        is_admin=is_admin,
+    )
 
 
 @app.post("/api/auth/login", response_model=AuthResponse)
@@ -103,29 +144,106 @@ async def login(req: LoginRequest):
     user = await get_user_by_username(req.username)
     if not user or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    if user["status"] == "deleted":
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    admin_username = get_settings().ADMIN_USERNAME
+    is_admin = bool(admin_username) and user["username"] == admin_username
     token = create_token(user["id"], user["username"])
-    return AuthResponse(token=token, user_id=user["id"], username=user["username"], display_name=user["display_name"])
+    return AuthResponse(
+        token=token,
+        user_id=user["id"],
+        username=user["username"],
+        display_name=user["display_name"],
+        status=user["status"],
+        is_admin=is_admin,
+    )
 
 
-@app.get("/api/auth/me")
-async def me(current_user: dict = Depends(get_current_user)):
-    user = await get_user_by_id(current_user["user_id"])
-    if not user:
+@app.get("/api/auth/me", response_model=MeResponse)
+async def me(user: dict = Depends(get_authenticated_user)):
+    admin_username = get_settings().ADMIN_USERNAME
+    is_admin = bool(admin_username) and user["username"] == admin_username
+    return MeResponse(
+        id=user["id"],
+        username=user["username"],
+        display_name=user["display_name"],
+        status=user["status"],
+        is_admin=is_admin,
+        created_at=str(user["created_at"]),
+    )
+
+
+# -- Admin routes --
+
+@app.get("/api/admin/users", response_model=list[UserAdminView])
+async def admin_list_users(
+    status: str | None = None,
+    admin: dict = Depends(get_admin_user),
+):
+    if status and status not in {"pending", "approved", "revoked", "deleted"}:
+        raise HTTPException(status_code=400, detail="Invalid status filter")
+    users = await list_users(status_filter=status)
+    return [
+        UserAdminView(
+            id=u["id"],
+            username=u["username"],
+            display_name=u["display_name"],
+            status=u["status"],
+            approved_at=str(u["approved_at"]) if u["approved_at"] else None,
+            created_at=str(u["created_at"]),
+        )
+        for u in users
+    ]
+
+
+@app.post("/api/admin/users/{user_id}/approve")
+async def admin_approve_user(user_id: int, admin: dict = Depends(get_admin_user)):
+    target = await get_user_by_id(user_id)
+    if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    if target["status"] == "deleted":
+        raise HTTPException(status_code=400, detail="Cannot approve a deleted user")
+    await set_user_status(user_id, "approved", approved_by=admin["id"])
+    return {"ok": True}
+
+
+@app.post("/api/admin/users/{user_id}/revoke")
+async def admin_revoke_user(user_id: int, admin: dict = Depends(get_admin_user)):
+    target = await get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_id == admin["id"]:
+        raise HTTPException(status_code=400, detail="Cannot revoke yourself")
+    if target["status"] == "deleted":
+        raise HTTPException(status_code=400, detail="Cannot revoke a deleted user")
+    await set_user_status(user_id, "revoked")
+    return {"ok": True}
+
+
+@app.delete("/api/admin/users/{user_id}")
+async def admin_delete_user(user_id: int, admin: dict = Depends(get_admin_user)):
+    target = await get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_id == admin["id"]:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    if target["status"] == "deleted":
+        raise HTTPException(status_code=400, detail="Already deleted")
+    await soft_delete_user(user_id)
+    return {"ok": True}
 
 
 # -- Meeting routes --
 
 @app.get("/api/meetings")
 async def list_meetings(current_user: dict = Depends(get_current_user)):
-    meetings = await get_meetings_for_user(current_user["user_id"])
+    meetings = await get_meetings_for_user(current_user["id"])
     return meetings
 
 
 @app.get("/api/meetings/{meeting_id}")
 async def get_meeting(meeting_id: int, current_user: dict = Depends(get_current_user)):
-    meeting = await get_meeting_by_id(meeting_id, current_user["user_id"])
+    meeting = await get_meeting_by_id(meeting_id, current_user["id"])
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
     transcripts = await get_transcripts(meeting_id)
@@ -153,7 +271,7 @@ async def upload_transcription(file: UploadFile = File(...), current_user: dict 
         raise HTTPException(status_code=400, detail="No file provided")
 
     # Create DB record
-    transcription_id = await create_transcription(current_user["user_id"], file.filename)
+    transcription_id = await create_transcription(current_user["id"], file.filename)
 
     try:
         file_bytes = await file.read()
@@ -183,12 +301,12 @@ async def upload_transcription(file: UploadFile = File(...), current_user: dict 
 
 @app.get("/api/transcriptions")
 async def list_transcriptions(current_user: dict = Depends(get_current_user)):
-    return await get_transcriptions_for_user(current_user["user_id"])
+    return await get_transcriptions_for_user(current_user["id"])
 
 
 @app.get("/api/transcriptions/{transcription_id}")
 async def get_transcription_detail(transcription_id: int, current_user: dict = Depends(get_current_user)):
-    t = await get_transcription(transcription_id, current_user["user_id"])
+    t = await get_transcription(transcription_id, current_user["id"])
     if not t:
         raise HTTPException(status_code=404, detail="Transcription not found")
     return t
@@ -207,9 +325,16 @@ async def meeting_ws(websocket: WebSocket, session_id: str, token: str = Query(d
         return
 
     try:
-        user_data = get_user_from_ws_token(token)
-        user_id = user_data["user_id"]
-        user_name = user_data["username"]
+        payload = get_user_from_ws_token(token)
+        user = await get_user_by_id(payload["user_id"])
+        if not user or user["status"] == "deleted":
+            raise ValueError("User not found")
+        if user["status"] != "approved":
+            await websocket.send_json({"type": "error", "message": "Account not approved"})
+            await websocket.close(code=4003)
+            return
+        user_id = user["id"]
+        user_name = user["username"]
     except Exception:
         await websocket.send_json({"type": "error", "message": "Invalid token"})
         await websocket.close(code=4001)
