@@ -1,6 +1,10 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
+
+# Project root is two levels up from this file: backend/app/config.py -> backend -> root
+ROOT_ENV = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -18,7 +22,7 @@ class Settings(BaseSettings):
     DB_PATH: str = "data/meetings.db"
     PORT: int = 8000
 
-    model_config = {"env_file": ".env"}
+    model_config = {"env_file": str(ROOT_ENV)}
 
 
 @lru_cache
