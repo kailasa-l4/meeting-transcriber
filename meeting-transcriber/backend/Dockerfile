@@ -34,7 +34,8 @@ COPY backend/alembic ./alembic
 COPY --from=frontend-build /app/dist/client /frontend-dist
 
 COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+# Normalize line endings (Windows host may have CRLF, which breaks /bin/sh shebang)
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
 # Port is configurable via PORT env var (default 8000)
 ENV PORT=8000
