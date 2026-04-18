@@ -1,348 +1,275 @@
-"""Persistent SQLite database for users, meetings, transcripts, and summaries."""
+"""SQLAlchemy async persistence layer.
 
-import aiosqlite
+Public functions return plain dicts (or lists of dicts) so callers in main.py
+and auth.py don't need to know about ORM instances.
+"""
+
 import logging
-from pathlib import Path
+from typing import Any
+
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import get_settings
+from app.models_db import Meeting, Summary, Transcript, Transcription, User
 
 logger = logging.getLogger(__name__)
 
-_db_path: str = ""
+_engine: AsyncEngine | None = None
+_SessionLocal: async_sessionmaker[AsyncSession] | None = None
+
+
+def _to_dict(row: Any) -> dict:
+    """Convert a SQLAlchemy model instance to a plain dict."""
+    return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+
+
+def _session() -> AsyncSession:
+    assert _SessionLocal is not None, "init_db not called"
+    return _SessionLocal()
 
 
 async def init_db() -> None:
-    """Create tables if they don't exist. Called on app startup."""
-    global _db_path
+    """Initialize the async engine and session factory. Called on app startup.
+
+    Migrations are applied separately by `alembic upgrade head` (entrypoint.sh).
+    """
+    global _engine, _SessionLocal
     settings = get_settings()
-    _db_path = settings.DB_PATH
-
-    # Ensure parent directory exists
-    Path(_db_path).parent.mkdir(parents=True, exist_ok=True)
-
-    async with aiosqlite.connect(_db_path) as db:
-        await db.executescript("""
-            CREATE TABLE IF NOT EXISTS users (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                username      TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                display_name  TEXT NOT NULL,
-                status        TEXT NOT NULL DEFAULT 'pending'
-                              CHECK (status IN ('pending','approved','revoked','deleted')),
-                approved_at   TIMESTAMP NULL,
-                approved_by   INTEGER NULL REFERENCES users(id),
-                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS meetings (
-                id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id       TEXT UNIQUE NOT NULL,
-                user_id          INTEGER NOT NULL REFERENCES users(id),
-                title            TEXT,
-                channel_id       TEXT,
-                slack_thread_ts  TEXT,
-                status           TEXT DEFAULT 'recording',
-                duration_seconds INTEGER,
-                started_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ended_at         TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS transcripts (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                meeting_id INTEGER NOT NULL REFERENCES meetings(id),
-                speaker    INTEGER,
-                text       TEXT NOT NULL,
-                timestamp  REAL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS summaries (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                meeting_id INTEGER NOT NULL REFERENCES meetings(id),
-                type       TEXT NOT NULL,
-                content    TEXT NOT NULL,
-                time_range TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS transcriptions (
-                id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id          INTEGER NOT NULL REFERENCES users(id),
-                file_name        TEXT NOT NULL,
-                duration_seconds INTEGER,
-                status           TEXT DEFAULT 'processing',
-                transcript       TEXT,
-                segments         TEXT,
-                error_message    TEXT,
-                created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                completed_at     TIMESTAMP
-            );
-        """)
-        await db.commit()
-
-        # Migration for existing DBs: add new columns if missing
-        cursor = await db.execute("PRAGMA table_info(users)")
-        existing_cols = {row[1] for row in await cursor.fetchall()}
-
-        if "status" not in existing_cols:
-            await db.execute(
-                "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' "
-                "CHECK (status IN ('pending','approved','revoked','deleted'))"
-            )
-        if "approved_at" not in existing_cols:
-            await db.execute("ALTER TABLE users ADD COLUMN approved_at TIMESTAMP NULL")
-        if "approved_by" not in existing_cols:
-            await db.execute(
-                "ALTER TABLE users ADD COLUMN approved_by INTEGER NULL REFERENCES users(id)"
-            )
-        await db.commit()
-
-        # Auto-approve the configured admin user if they exist
-        admin_username = settings.ADMIN_USERNAME
-        if admin_username:
-            await db.execute(
-                "UPDATE users SET status = 'approved', approved_at = CURRENT_TIMESTAMP "
-                "WHERE username = ? AND status != 'approved'",
-                (admin_username,),
-            )
-            await db.commit()
-
-    logger.info("Database initialized at %s", _db_path)
+    _engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
+    _SessionLocal = async_sessionmaker(_engine, expire_on_commit=False)
+    logger.info("Database engine initialized")
 
 
-def _get_db_path() -> str:
-    return _db_path
+async def dispose_db() -> None:
+    global _engine
+    if _engine is not None:
+        await _engine.dispose()
+        _engine = None
 
 
 # -- User CRUD --
 
 async def create_user(username: str, password_hash: str, display_name: str) -> int:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        cursor = await db.execute(
-            "INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
-            (username, password_hash, display_name),
-        )
-        await db.commit()
-        return cursor.lastrowid
+    async with _session() as s:
+        user = User(username=username, password_hash=password_hash, display_name=display_name)
+        s.add(user)
+        await s.commit()
+        await s.refresh(user)
+        return user.id
 
 
 async def get_user_by_username(username: str) -> dict | None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT * FROM users WHERE username = ?", (username,))
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+    async with _session() as s:
+        result = await s.execute(select(User).where(User.username == username))
+        row = result.scalar_one_or_none()
+        return _to_dict(row) if row else None
 
 
 async def get_user_by_id(user_id: int) -> dict | None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT id, username, display_name, status, approved_at, approved_by, created_at "
-            "FROM users WHERE id = ?",
-            (user_id,),
-        )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+    async with _session() as s:
+        row = await s.get(User, user_id)
+        if not row:
+            return None
+        d = _to_dict(row)
+        d.pop("password_hash", None)
+        return d
 
 
 async def list_users(status_filter: str | None = None) -> list[dict]:
-    """List users, optionally filtered by status. Excludes deleted unless filter='deleted'."""
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
+    async with _session() as s:
+        stmt = select(User)
         if status_filter:
-            cursor = await db.execute(
-                "SELECT id, username, display_name, status, approved_at, created_at "
-                "FROM users WHERE status = ? ORDER BY created_at DESC",
-                (status_filter,),
-            )
+            stmt = stmt.where(User.status == status_filter)
         else:
-            cursor = await db.execute(
-                "SELECT id, username, display_name, status, approved_at, created_at "
-                "FROM users WHERE status != 'deleted' ORDER BY created_at DESC",
-            )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+            stmt = stmt.where(User.status != "deleted")
+        stmt = stmt.order_by(User.created_at.desc())
+        result = await s.execute(stmt)
+        rows = result.scalars().all()
+        out = []
+        for r in rows:
+            d = _to_dict(r)
+            d.pop("password_hash", None)
+            d.pop("approved_by", None)
+            out.append(d)
+        return out
 
 
 async def set_user_status(user_id: int, status: str, approved_by: int | None = None) -> None:
-    """Update a user's status. When approving, sets approved_at and approved_by."""
-    async with aiosqlite.connect(_get_db_path()) as db:
+    async with _session() as s:
         if status == "approved":
-            await db.execute(
-                "UPDATE users SET status = ?, approved_at = CURRENT_TIMESTAMP, approved_by = ? "
-                "WHERE id = ?",
-                (status, approved_by, user_id),
+            await s.execute(
+                update(User)
+                .where(User.id == user_id)
+                .values(status=status, approved_at=func.now(), approved_by=approved_by)
             )
         else:
-            await db.execute(
-                "UPDATE users SET status = ? WHERE id = ?",
-                (status, user_id),
-            )
-        await db.commit()
+            await s.execute(update(User).where(User.id == user_id).values(status=status))
+        await s.commit()
 
 
 async def soft_delete_user(user_id: int) -> None:
-    """Soft delete: rename username to free it, set status='deleted'. Data preserved."""
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT username FROM users WHERE id = ?", (user_id,))
-        row = await cursor.fetchone()
+    """Soft delete: rename username to free it; mark status='deleted'. Data preserved."""
+    async with _session() as s:
+        row = await s.get(User, user_id)
         if not row:
             return
-        original = row["username"]
+        original = row.username
         suffix = f"__deleted_{user_id}"
         new_username = original if original.endswith(suffix) else f"{original}{suffix}"
-        await db.execute(
-            "UPDATE users SET status = 'deleted', username = ? WHERE id = ?",
-            (new_username, user_id),
-        )
-        await db.commit()
+        row.username = new_username
+        row.status = "deleted"
+        await s.commit()
 
 
 # -- Meeting CRUD --
 
 async def create_meeting(session_id: str, user_id: int, channel_id: str | None) -> int:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        cursor = await db.execute(
-            "INSERT INTO meetings (session_id, user_id, channel_id) VALUES (?, ?, ?)",
-            (session_id, user_id, channel_id),
-        )
-        await db.commit()
-        return cursor.lastrowid
+    async with _session() as s:
+        m = Meeting(session_id=session_id, user_id=user_id, channel_id=channel_id)
+        s.add(m)
+        await s.commit()
+        await s.refresh(m)
+        return m.id
 
 
 async def complete_meeting(meeting_id: int, duration_seconds: int, title: str | None = None) -> None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        await db.execute(
-            "UPDATE meetings SET status = 'completed', duration_seconds = ?, title = ?, ended_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (duration_seconds, title, meeting_id),
+    async with _session() as s:
+        await s.execute(
+            update(Meeting)
+            .where(Meeting.id == meeting_id)
+            .values(status="completed", duration_seconds=duration_seconds, title=title, ended_at=func.now())
         )
-        await db.commit()
+        await s.commit()
 
 
 async def update_meeting_slack_thread(meeting_id: int, slack_thread_ts: str) -> None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        await db.execute(
-            "UPDATE meetings SET slack_thread_ts = ? WHERE id = ?",
-            (slack_thread_ts, meeting_id),
+    async with _session() as s:
+        await s.execute(
+            update(Meeting).where(Meeting.id == meeting_id).values(slack_thread_ts=slack_thread_ts)
         )
-        await db.commit()
+        await s.commit()
 
 
 async def get_meetings_for_user(user_id: int) -> list[dict]:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT id, session_id, title, status, duration_seconds, started_at, ended_at FROM meetings WHERE user_id = ? ORDER BY started_at DESC",
-            (user_id,),
+    async with _session() as s:
+        stmt = (
+            select(Meeting.id, Meeting.session_id, Meeting.title, Meeting.status,
+                   Meeting.duration_seconds, Meeting.started_at, Meeting.ended_at)
+            .where(Meeting.user_id == user_id)
+            .order_by(Meeting.started_at.desc())
         )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+        result = await s.execute(stmt)
+        return [dict(r._mapping) for r in result.all()]
 
 
 async def get_meeting_by_id(meeting_id: int, user_id: int) -> dict | None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT * FROM meetings WHERE id = ? AND user_id = ?",
-            (meeting_id, user_id),
+    async with _session() as s:
+        result = await s.execute(
+            select(Meeting).where(Meeting.id == meeting_id, Meeting.user_id == user_id)
         )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+        row = result.scalar_one_or_none()
+        return _to_dict(row) if row else None
 
 
 # -- Transcript CRUD --
 
 async def add_transcript(meeting_id: int, speaker: int | None, text: str, timestamp: float | None) -> None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        await db.execute(
-            "INSERT INTO transcripts (meeting_id, speaker, text, timestamp) VALUES (?, ?, ?, ?)",
-            (meeting_id, speaker, text, timestamp),
-        )
-        await db.commit()
+    async with _session() as s:
+        s.add(Transcript(meeting_id=meeting_id, speaker=speaker, text=text, timestamp=timestamp))
+        await s.commit()
 
 
 async def get_transcripts(meeting_id: int) -> list[dict]:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT speaker, text, timestamp FROM transcripts WHERE meeting_id = ? ORDER BY id",
-            (meeting_id,),
+    async with _session() as s:
+        stmt = (
+            select(Transcript.speaker, Transcript.text, Transcript.timestamp)
+            .where(Transcript.meeting_id == meeting_id)
+            .order_by(Transcript.id)
         )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+        result = await s.execute(stmt)
+        return [dict(r._mapping) for r in result.all()]
 
 
 # -- Summary CRUD --
 
 async def add_summary(meeting_id: int, summary_type: str, content: str, time_range: str | None = None) -> None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        await db.execute(
-            "INSERT INTO summaries (meeting_id, type, content, time_range) VALUES (?, ?, ?, ?)",
-            (meeting_id, summary_type, content, time_range),
-        )
-        await db.commit()
+    async with _session() as s:
+        s.add(Summary(meeting_id=meeting_id, type=summary_type, content=content, time_range=time_range))
+        await s.commit()
 
 
 async def get_summaries(meeting_id: int) -> list[dict]:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT type, content, time_range, created_at FROM summaries WHERE meeting_id = ? ORDER BY id",
-            (meeting_id,),
+    async with _session() as s:
+        stmt = (
+            select(Summary.type, Summary.content, Summary.time_range, Summary.created_at)
+            .where(Summary.meeting_id == meeting_id)
+            .order_by(Summary.id)
         )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+        result = await s.execute(stmt)
+        return [dict(r._mapping) for r in result.all()]
 
 
 # -- Transcription CRUD --
 
 async def create_transcription(user_id: int, file_name: str) -> int:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        cursor = await db.execute(
-            "INSERT INTO transcriptions (user_id, file_name) VALUES (?, ?)",
-            (user_id, file_name),
-        )
-        await db.commit()
-        return cursor.lastrowid
+    async with _session() as s:
+        t = Transcription(user_id=user_id, file_name=file_name)
+        s.add(t)
+        await s.commit()
+        await s.refresh(t)
+        return t.id
 
 
-async def complete_transcription(transcription_id: int, transcript: str, segments: str, duration_seconds: int | None) -> None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        await db.execute(
-            "UPDATE transcriptions SET status = 'completed', transcript = ?, segments = ?, duration_seconds = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (transcript, segments, duration_seconds, transcription_id),
+async def complete_transcription(
+    transcription_id: int, transcript: str, segments: str, duration_seconds: int | None
+) -> None:
+    async with _session() as s:
+        await s.execute(
+            update(Transcription)
+            .where(Transcription.id == transcription_id)
+            .values(
+                status="completed",
+                transcript=transcript,
+                segments=segments,
+                duration_seconds=duration_seconds,
+                completed_at=func.now(),
+            )
         )
-        await db.commit()
+        await s.commit()
 
 
 async def fail_transcription(transcription_id: int, error_message: str) -> None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        await db.execute(
-            "UPDATE transcriptions SET status = 'failed', error_message = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (error_message, transcription_id),
+    async with _session() as s:
+        await s.execute(
+            update(Transcription)
+            .where(Transcription.id == transcription_id)
+            .values(status="failed", error_message=error_message, completed_at=func.now())
         )
-        await db.commit()
+        await s.commit()
 
 
 async def get_transcription(transcription_id: int, user_id: int) -> dict | None:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT * FROM transcriptions WHERE id = ? AND user_id = ?",
-            (transcription_id, user_id),
+    async with _session() as s:
+        result = await s.execute(
+            select(Transcription).where(
+                Transcription.id == transcription_id,
+                Transcription.user_id == user_id,
+            )
         )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+        row = result.scalar_one_or_none()
+        return _to_dict(row) if row else None
 
 
 async def get_transcriptions_for_user(user_id: int) -> list[dict]:
-    async with aiosqlite.connect(_get_db_path()) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT id, file_name, status, duration_seconds, created_at, completed_at FROM transcriptions WHERE user_id = ? ORDER BY created_at DESC",
-            (user_id,),
+    async with _session() as s:
+        stmt = (
+            select(
+                Transcription.id, Transcription.file_name, Transcription.status,
+                Transcription.duration_seconds, Transcription.created_at, Transcription.completed_at,
+            )
+            .where(Transcription.user_id == user_id)
+            .order_by(Transcription.created_at.desc())
         )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+        result = await s.execute(stmt)
+        return [dict(r._mapping) for r in result.all()]
