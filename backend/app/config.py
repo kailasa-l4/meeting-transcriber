@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_DAYS: int = 7
-    DB_PATH: str = "data/meetings.db"
+    DATABASE_URL: str
     ADMIN_USERNAME: str = ""
     PORT: int = 8000
 
