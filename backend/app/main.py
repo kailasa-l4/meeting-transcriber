@@ -29,6 +29,7 @@ from app.database import (
     create_meeting,
     create_transcription,
     create_user,
+    dispose_db,
     fail_transcription,
     get_meeting_by_id,
     get_meetings_for_user,
@@ -56,7 +57,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    yield
+    try:
+        yield
+    finally:
+        await dispose_db()
 
 
 app = FastAPI(title="Meeting Transcriber", lifespan=lifespan)
@@ -169,7 +173,7 @@ async def me(user: dict = Depends(get_authenticated_user)):
         display_name=user["display_name"],
         status=user["status"],
         is_admin=is_admin,
-        created_at=str(user["created_at"]),
+        created_at=user["created_at"].isoformat() if user["created_at"] else "",
     )
 
 
@@ -189,8 +193,8 @@ async def admin_list_users(
             username=u["username"],
             display_name=u["display_name"],
             status=u["status"],
-            approved_at=str(u["approved_at"]) if u["approved_at"] else None,
-            created_at=str(u["created_at"]),
+            approved_at=u["approved_at"].isoformat() if u["approved_at"] else None,
+            created_at=u["created_at"].isoformat() if u["created_at"] else "",
         )
         for u in users
     ]
