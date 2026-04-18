@@ -26,11 +26,12 @@ RUN uv sync --frozen 2>/dev/null || uv sync
 # Copy backend code
 COPY backend/app ./app
 
+# Alembic migration scripts and config
+COPY backend/alembic.ini ./
+COPY backend/alembic ./alembic
+
 # Copy built frontend (client-side static assets from TanStack Start build)
 COPY --from=frontend-build /app/dist/client /frontend-dist
-
-# Ensure data directory exists
-RUN mkdir -p /app/data
 
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh

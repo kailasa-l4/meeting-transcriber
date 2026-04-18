@@ -20,9 +20,10 @@ cloudflared tunnel --url http://localhost:$PORT --no-autoupdate 2>&1 | while rea
   esac
 done &
 
-# Ensure persistent data directory exists
-mkdir -p /app/data
+# Apply database migrations before starting the app
+cd /app
+echo "[entrypoint] Running database migrations..."
+uv run alembic upgrade head
 
 # Start the FastAPI server
-cd /app
 exec uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
