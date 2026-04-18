@@ -2,7 +2,7 @@ import logging
 import os
 
 from agno.agent import Agent
-from agno.db.sqlite import SqliteDb
+from agno.db.postgres import PostgresDb
 from agno.models.openrouter import OpenRouter
 
 from app.config import get_settings
@@ -42,8 +42,17 @@ FINAL_INSTRUCTIONS = (
     "• Omit empty sections"
 )
 
-# Agent storage for session history
-_db = SqliteDb(db_file="tmp/meeting_sessions.db")
+# Agent storage for session history (shared Postgres; Agno uses psycopg sync driver).
+# The app's DATABASE_URL is `postgresql+asyncpg://…` for SQLAlchemy async; strip
+# the `+asyncpg` suffix so Agno's psycopg driver parses it correctly.
+def _agno_db_url() -> str:
+    url = os.environ.get("DATABASE_URL") or get_settings().DATABASE_URL
+    # App uses `postgresql+asyncpg://` for SQLAlchemy async; Agno uses psycopg3 sync,
+    # so swap the driver suffix to `+psycopg` (SQLAlchemy's psycopg3 dialect name).
+    return url.replace("+asyncpg", "+psycopg")
+
+
+_db = PostgresDb(db_url=_agno_db_url())
 
 # Per-session chunk agents (each meeting gets its own agent instance with history)
 _chunk_agents: dict[str, Agent] = {}
